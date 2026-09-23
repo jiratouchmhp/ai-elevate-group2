@@ -583,13 +583,13 @@ sequenceDiagram
     rect rgb(232, 240, 254)
     Note over R,P: Step 1 — establish the rule (read-only)
     R->>P: retrieve home office equipment policy
-    P-->>R: "$500 allowance; requires Remote/Hybrid status;<br/>'Facilities' ticket; ship to verified address" + citation
+    P-->>R: "$500 allowance, requires Remote/Hybrid status,<br/>'Facilities' ticket, ship to verified address" + citation
     end
 
     rect rgb(232, 240, 254)
     Note over R,W: Step 2 — verify eligibility (read-only)
     R->>W: get_profile(employee_id)
-    W-->>R: location_status = "Hybrid"; address on file
+    W-->>R: location_status = "Hybrid", address on file
     end
 
     alt Not eligible
