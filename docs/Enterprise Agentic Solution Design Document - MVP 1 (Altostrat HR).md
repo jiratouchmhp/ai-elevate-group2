@@ -23,6 +23,7 @@
 | 0.1 | 22 Sep 2026 | Solution Architecture | Initial outline setup |
 | 1.0 | 22 Sep 2026 | Solution Architecture | Full MVP 1 design: architecture, agent design, security, integration, FinOps, delivery, evaluation |
 | 1.1 | 23 Sep 2026 | Solution Architecture | Added explicit enterprise out-of-scope register (OOS-1…OOS-12, §1.2); separated PSC (in scope) from VPC-SC (deferred) across §2.1/§2.2/§4.7; clarified that the `prod` environment is not production during MVP 1 (§7.1) |
+| 1.2 | 23 Sep 2026 | Solution Architecture | Added **D10** (§5.1) assessing the Gemini Enterprise Agent Platform governance services: Agent Identity adopted at MVP (resolves F-3, gives OQ-12 a governed answer), Agent Registry and Agent Gateway named as the Pilot resolution of F-8/OOS-7, Semantic Governance Policies explicitly rejected as a substitute for the deterministic PDP. Added OQ-13 on pulling Agent Gateway forward; updated §2.1, §2.2, §4.4, §10.2 and Appendices A/B accordingly |
 
 > [!NOTE]
 > **Naming.** Google has consolidated its agent tooling under the **Gemini Enterprise Agent
@@ -119,7 +120,7 @@ the release that reintroduces it:
 | OOS-4 | **CMEK / customer-managed encryption keys** | Google-managed keys are adequate for synthetic data | Pilot |
 | OOS-5 | **Multi-region DR with tested RTO/RPO** | Single region (F-7); NFR-2.2 rests on managed-service SLAs, not proven failover | Production |
 | OOS-6 | **Apigee API management** — quota, threat protection, developer portal | Deferred in D4; adds no MVP validation value | Production |
-| OOS-7 | **Skill Registry / central capability registry with approval workflow** | MVP enforces the tool manifest by code review (F-8) | Pilot |
+| OOS-7 | **Agent Registry + Agent Gateway** — central capability catalogue with deny-by-default egress enforcement | MVP enforces the tool manifest by code review (F-8); adds a Phase 0 landing-zone dependency for no MVP validation value (**D10**) | Pilot |
 | OOS-8 | **HITL reviewer console / approval queue** | F-6; exceptions route to an HR Ops task (§3.6) | Pilot |
 | OOS-9 | **Non-web channels** — Slack, Google Chat, Teams, mobile native, email intake | Each channel is a separate auth and rendering problem | Pilot |
 | OOS-10 | **File upload / attachment handling** (e.g. medical certificates) | Introduces malware scanning and storage classification; MVP references an MC by ID only (§4.5) | Pilot |
@@ -270,7 +271,10 @@ flowchart TB
 
 ## **1.4. Alternatives Considered**
 
-Seven decisions materially shape the solution. Each is scored against weighted criteria
+Ten decisions materially shape the solution. The seven foundational ones are set out here;
+**D8** (frontend framework, §3.10), **D9** (vendor-native MCP interception, §5.1) and **D10**
+(platform governance services, §5.1) arise from detail established later and are recorded
+in place. Each is scored against weighted criteria
 (1–5, higher is better), with an explicit rejection rationale and — critically — the
 **conditions that would cause us to revisit**.
 
@@ -420,13 +424,13 @@ states the target end-state and, importantly, what the MVP deliberately fakes.
 | # | Dimension | MVP 1 | Pilot (~500 users) | Production |
 | :---- | :---- | :---- | :---- | :---- |
 | 1 | Identity | Test credentials; IAP-authenticated UI | Workforce Identity Federation + corporate IdP SSO | Full OIDC SSO, conditional access, step-up auth for sensitive writes |
-| 2 | Backend authorisation | Shared service account, user ID as parameter | Per-user delegated tokens (3-legged OAuth) | End-to-end delegated authorisation; backend enforces user scope natively |
+| 2 | Backend authorisation | **Agent Identity per-agent SPIFFE IDs**; per-persona credentials via auth manager | Per-user delegated tokens (3LO via auth manager) | End-to-end delegated authorisation; backend enforces user scope natively |
 | 3 | Tenancy | Single tenant | Single tenant, multi-department | Multi-entity with data isolation per jurisdiction |
 | 4 | Network | Single VPC, TLS, **PSC endpoints for Google APIs** (CON-6); no perimeter | **VPC-SC perimeter**, PSC extended to all egress | Full perimeter, private-only egress, no public ingress |
 | 5 | Encryption | Google-managed keys | CMEK on corpus + logs | CMEK everywhere with org-controlled rotation |
 | 6 | Availability | Single region | Single region + tested restore | Multi-region active/passive, RTO ≤ 4 h, RPO ≤ 15 min |
 | 7 | Human-in-the-loop | Confirm before every write | Risk-tiered confirmation | HITL queue for high-risk actions with HR reviewer console |
-| 8 | Capability governance | Static tool manifest in code review | Skill registry, versioned | Central registry with approval workflow and automatic drift detection |
+| 8 | Capability governance | Static tool manifest in code review | **Agent Registry + Agent Gateway** — registered destinations, deny-by-default egress | Central registry with approval workflow and automatic drift detection |
 | 9 | Observability | Cloud Logging + Trace | Dashboards + SLO alerting | Full SLO error budgets, anomaly detection on refusal/block rates |
 | 10 | Evaluation | Pre-release gate | Nightly regression | Continuous eval on sampled production traffic with drift alerting |
 
@@ -439,13 +443,13 @@ states the target end-state and, importantly, what the MVP deliberately fakes.
 | # | MVP shortcut | Production requirement | Risk if carried forward |
 | :---- | :---- | :---- | :---- |
 | F-1 | Functional test credentials | Per-user delegated authorisation | Backend cannot enforce user scope; RBAC becomes advisory |
-| F-2 | User identity passed as a parameter | Identity carried in a signed, verifiable token | Identity spoofing between agent and backend |
-| F-3 | Single shared service account per backend | Per-agent, per-tool service accounts | Loss of least privilege and attribution granularity |
+| F-2 | User identity passed as a parameter | Identity carried in a signed, verifiable token — **auth manager brokered (D10)** | Identity spoofing between agent and backend |
+| F-3 | ~~Single shared service account per backend~~ **Resolved at MVP by Agent Identity (D10)** | Per-agent SPIFFE identities | — |
 | F-4 | Public API egress to vendor backends (PSC in place for Google APIs, but no perimeter) | VPC-SC perimeter + private-only egress | Data exfiltration path exists |
 | F-5 | Manually curated corpus | Governed publishing workflow with approval | Unapproved policy text can be cited as authoritative |
 | F-6 | No HITL queue | Reviewer console for high-risk actions | No recovery path for an incorrect but confirmed write |
 | F-7 | Single region | Multi-region DR | 99.9% availability target unmet during regional impairment |
-| F-8 | Tool manifest enforced by code review | Registry-enforced capability boundary | FR-1.1 becomes a process control, not a technical one |
+| F-8 | Tool manifest enforced by code review | **Agent Registry + Agent Gateway deny-by-default egress (D10)** | FR-1.1 becomes a process control, not a technical one — **and the D9 interception model is enforced by configuration, not by the network** |
 
 ## 2.3 Extensibility design
 
@@ -966,8 +970,8 @@ sequenceDiagram
 | Layer | Identity | Purpose |
 | :---- | :---- | :---- |
 | User | Corporate identity via IAP | Establishes *who* |
-| Agent runtime | Dedicated service account | Establishes *which system* |
-| Tool service | Per-tool service account | Least privilege per capability |
+| Agent runtime | **Agent Identity — per-agent SPIFFE ID** (D10) | Establishes *which agent*, not merely which system |
+| Tool service | Per-tool service account; credentials brokered by auth manager | Least privilege per capability; the agent never holds the raw credential |
 | Backend call | Attribution headers + credential | Makes automation distinguishable from human action |
 
 > [!WARNING]
@@ -1132,6 +1136,49 @@ standard `Authorization` headers**, so the bearer token must travel as `X-MCP-To
 > "backend cannot enforce user scope; RBAC becomes advisory". That is **no longer true** — this backend
 > enforces scope natively. With per-persona PATs (option a), FR-1.5 moves from *advisory* to *enforced
 > at the system of record*, which is a stronger MVP posture than the design originally assumed.
+
+### D10 · Platform governance services — Agent Identity, Agent Registry, Agent Gateway
+
+The Gemini Enterprise Agent Platform ships three governance services that overlap this
+design's control model. They are assessed here so that their absence from MVP 1 is a
+decision rather than an omission.
+
+| Service | Control it offers | Overlaps | MVP 1 |
+| :---- | :---- | :---- | :---- |
+| **Agent Identity** | Per-agent SPIFFE identity; credential brokering via auth manager | F-3, F-2, OQ-12 | **Adopted, scoped** |
+| **Agent Registry** | Central catalogue of sanctioned tools, MCP servers and endpoints | OOS-7, F-8 | Deferred to Pilot |
+| **Agent Gateway** | Deny-by-default egress; MCP-attribute authorization; Service Extensions callout | F-8, FR-1.1, T-4 | Deferred to Pilot |
+| **Semantic Governance Policies** | LLM-evaluated natural-language constraints on tool calls | §3.8 rule set | **Rejected — see below** |
+
+**Adopted: Agent Identity.** Available GA in `asia-southeast1` and supported on both
+Agent Runtime and Cloud Run, so it carries no residency conflict and no re-platforming.
+It replaces the shared service account of F-3 with per-agent cryptographic identities that
+cannot be impersonated and admit no long-lived keys, and its auth manager gives OQ-12 a
+governed answer — per-persona credentials held as auth providers with revocation and
+per-identity access events — in place of bespoke PAT selection from Secret Manager.
+
+**Deferred: Agent Registry and Agent Gateway.** Both are the correct production answer to
+F-8, and Agent Gateway is the stronger one: in Agent-to-Anywhere mode it denies egress to
+any destination that is not registered and explicitly granted, which would make the D9
+interception model **network-enforced rather than configuration-enforced**. Its Service
+Extensions callout can additionally delegate the authorisation decision to the PDP itself,
+making the PDP a mandatory hop rather than a component the agent is trusted to call.
+
+This is a material strengthening of D9 and it is deferred only because it adds a Phase 0
+landing-zone dependency alongside PSC while the backends are a public mock. **It is named
+here as the Pilot resolution of F-8 and OOS-7** (OQ-13 asks whether it should be pulled
+forward).
+
+> [!CAUTION]
+> **Semantic Governance Policies are rejected, and the reason is the same one that produced
+> the PDP.** SGP evaluates natural-language constraints with a model and returns ALLOW/DENY.
+> Adopting it in place of the §3.8 rule set would put a probabilistic evaluator behind a
+> **100% transaction-correctness hard gate** (§9.4), contradict §3.4's guarantee that the
+> model never decides whether a rule is satisfied, and remove the 100%-branch-coverage unit
+> tests of §7.3. `LEAVE_BALANCE_CAP` is an inequality, not an intent.
+>
+> SGP is a reasonable control for open-ended agents whose rules genuinely resist
+> codification. This system's rules are already codified — in the handbook, numerically.
 
 ## 5.2 Tool contract catalogue
 
@@ -1575,6 +1622,7 @@ audit trail reviewed and accepted by Compliance.
 | OQ-6 | Is the <300 ms safety budget negotiable given §9.4? | Programme sponsor | SLO acceptance | Phase 4 |
 | OQ-7 | Retention period for de-identified transcripts? | Compliance | Logging config | Phase 1 |
 | OQ-8 | Who owns the business-rules configuration in production — HR or Engineering? | HR / Eng | Operating model | Phase 3 |
+| OQ-13 | **Should Agent Gateway be pulled forward from Pilot to MVP Phase 0 (D10)?** It would make the D9 PDP interception **network-enforced rather than configuration-enforced**. Blocker to check: the gateway rejects destinations with self-signed certificate chains, so the mock host must present a publicly trusted CA certificate. | Architecture / Security | Strength of the FR-1.1 control | Phase 0 |
 
 > [!IMPORTANT]
 > **OQ-5 is the most consequential.** If the stronger model tier is unavailable on a Singapore
@@ -1594,6 +1642,8 @@ audit trail reviewed and accepted by Compliance.
 | Fail-closed on guardrail unavailability | Accept (§5.4) | Security |
 | No auto-compensation on partial failure | Accept (§3.6) | HR Ops |
 | No ticket auto-resolution (B-8) | Accept (§1.2) | Programme sponsor |
+| **Reject Semantic Governance Policies; the deterministic PDP remains the rule authority** | Accept (D10) | Architecture / Security |
+| **Adopt Agent Identity at MVP; defer Agent Registry + Agent Gateway to Pilot** | Accept (D10) | Architecture / Security |
 
 ---
 
@@ -1614,14 +1664,14 @@ requirement is not measurable as written and §9.4 proposes a testable equivalen
 
 | Req | Name | Design element | § | Verification | **Status** |
 | :---- | :---- | :---- | :---- | :---- | :---- |
-| FR-1.1 | Capability & lifecycle governance | Tool manifest + `before_tool_callback`; versioned artefacts | 5.2, 7.2 | Unauthorised-tool test | **Partial** — enforced by code review, not a registry (F-8) |
-| FR-1.2 | Verification of request origin | Identity chain + attribution headers; `actor_type` | 4.4, 4.6 | Audit record inspection | **Partial** — headers are asserted, not cryptographically verified (F-2) |
+| FR-1.1 | Capability & lifecycle governance | Tool manifest + `before_tool_callback`; versioned artefacts | 5.2, 7.2 | Unauthorised-tool test | **Partial** — enforced by code review, not a registry (F-8); **Agent Registry + Agent Gateway at Pilot (D10)** |
+| FR-1.2 | Verification of request origin | Identity chain + attribution headers; `actor_type` | 4.4, 4.6 | Audit record inspection | **Partial** — headers are asserted, not cryptographically verified (F-2); **Agent Identity narrows this (D10)** |
 | FR-1.3 | Verification of conversation safety | Model Armor input + output templates | 4.2, D5 | Red-team set (§9.3) | **Met** |
 | FR-1.4 | Data masking / redaction | **Advanced SDP + custom SG infoType** | 4.5 | Log inspection for SPII | **Met** — conditional on advanced SDP configuration (CON-7) |
 | FR-1.5 | RBAC and data isolation | Scope from auth context; integration-tier enforcement | 4.7, 1.5 | Cross-user access tests | **Partial** — enforcement is effectively client-side at MVP (F-1) |
 | FR-2.1 | Natural language understanding | Root Orchestrator; clarification flow | 3.1 | UAT NLU assessment | **Met** |
 | FR-2.2 | Multi-turn dialog | Managed sessions; isolation by identity | 3.9 | Session leakage test | **Met** |
-| FR-3.1 | Delegated authorization | Attribution headers (MVP); 3LO (target) | 4.4, 2.1 | Audit inspection | **Partial** — no composite scoped token at MVP; **the largest MVP-to-production gap** |
+| FR-3.1 | Delegated authorization | Attribution headers (MVP); 3LO **via Agent Identity auth manager** (target, D10) | 4.4, 2.1 | Audit inspection | **Partial** — no composite scoped token at MVP; **the largest MVP-to-production gap** |
 | FR-3.2 | WorkWeek core actions | 4 HCM tools | 5.2 | UC-1.2 | **Met** |
 | FR-3.3 | WorkWeek guardrails | PDP rules: balance, chronology, format | 5.3 | PDP unit tests | **Met** |
 | FR-3.4 | Real-time data fetch | No caching of employee data | 3.9 | State inspection | **Met** |
@@ -1654,7 +1704,8 @@ requirement is not measurable as written and §9.4 proposes a testable equivalen
 | Vertex AI Agent Builder | Gemini Enterprise Agent Platform |
 | Vertex AI Search | Agent Search / Vertex AI Search |
 | Cloud DLP | Sensitive Data Protection |
-| — (new) | Agent Studio, Agent Garden, Skill Registry, Agent Gateway |
+| Skill Registry (interim name) | Agent Registry |
+| — (new) | Agent Studio, Agent Garden, **Agent Identity**, **Agent Registry**, **Agent Gateway** (see D10) |
 
 ---
 
