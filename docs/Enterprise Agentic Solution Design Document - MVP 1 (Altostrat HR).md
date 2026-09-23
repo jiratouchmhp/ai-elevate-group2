@@ -22,6 +22,7 @@
 | :---- | :---- | :---- | :---- |
 | 0.1 | 22 Sep 2026 | Solution Architecture | Initial outline setup |
 | 1.0 | 22 Sep 2026 | Solution Architecture | Full MVP 1 design: architecture, agent design, security, integration, FinOps, delivery, evaluation |
+| 1.1 | 23 Sep 2026 | Solution Architecture | Added explicit enterprise out-of-scope register (OOS-1…OOS-12, §1.2); separated PSC (in scope) from VPC-SC (deferred) across §2.1/§2.2/§4.7; clarified that the `prod` environment is not production during MVP 1 (§7.1) |
 
 > [!NOTE]
 > **Naming.** Google has consolidated its agent tooling under the **Gemini Enterprise Agent
@@ -103,8 +104,41 @@ which is the crux of FR-1.1.
 
 ### Out of scope (MVP 1)
 
-Per BRD §2.3: systems beyond WorkWeek/ServiceImmediately/policy repository; multi-lingual;
-payroll, performance or compensation data; voice.
+**Inherited from BRD §2.3:** systems beyond WorkWeek/ServiceImmediately/policy repository;
+multi-lingual; payroll, performance or compensation data; voice.
+
+**Enterprise controls and capabilities deliberately deferred.** The BRD does not enumerate
+these, but they are the exclusions a security or platform reviewer will look for. Each names
+the release that reintroduces it:
+
+| # | Excluded from MVP 1 | Rationale | Returns at |
+| :---- | :---- | :---- | :---- |
+| OOS-1 | **VPC Service Controls perimeter** | An org-level ingress/egress policy requiring a dry-run tuning cycle; MVP holds only synthetic data. *Note: PSC endpoints are **in** scope — see §4.7* | Pilot |
+| OOS-2 | **Corporate SSO / Workforce Identity Federation** | CON-1 mandates functional test credentials | Pilot |
+| OOS-3 | **Per-user delegated authorisation (3-legged OAuth)** | Sandbox tenants expose no consent flow (F-1/F-2) | Pilot — *the most consequential gap (§4.4)* |
+| OOS-4 | **CMEK / customer-managed encryption keys** | Google-managed keys are adequate for synthetic data | Pilot |
+| OOS-5 | **Multi-region DR with tested RTO/RPO** | Single region (F-7); NFR-2.2 rests on managed-service SLAs, not proven failover | Production |
+| OOS-6 | **Apigee API management** — quota, threat protection, developer portal | Deferred in D4; adds no MVP validation value | Production |
+| OOS-7 | **Skill Registry / central capability registry with approval workflow** | MVP enforces the tool manifest by code review (F-8) | Pilot |
+| OOS-8 | **HITL reviewer console / approval queue** | F-6; exceptions route to an HR Ops task (§3.6) | Pilot |
+| OOS-9 | **Non-web channels** — Slack, Google Chat, Teams, mobile native, email intake | Each channel is a separate auth and rendering problem | Pilot |
+| OOS-10 | **File upload / attachment handling** (e.g. medical certificates) | Introduces malware scanning and storage classification; MVP references an MC by ID only (§4.5) | Pilot |
+| OOS-11 | **Proactive / event-driven agents** (e.g. expiring-leave nudges) | Substrate exists (§2.3) but no scheduler or notification surface in MVP | Post-MVP |
+| OOS-12 | **Model fine-tuning, distillation or custom-trained models** | Prompting + grounding only; fine-tuning would weaken the citation and audit story | Not planned |
+
+> [!NOTE]
+> **None of these are excluded because they are unnecessary.** Most are mandatory before the
+> system touches production data, and §2.1 tracks each to the release that introduces it.
+> They are excluded because MVP 1 runs on **synthetic data in sandbox tenants**, where the
+> marginal risk they mitigate is near zero, and because each carries a lead time — org policy
+> approval, IdP integration, vendor consent flows — that would consume the MVP window without
+> improving the outcome the MVP exists to prove. **Carrying any of them past the production
+> gate would be a material control failure (§2.2).**
+
+**OOS-10 will be tested on day one of UAT.** UC-2.2 is medical leave, so the natural user
+instinct is to attach a medical certificate. This is a scope decision, not a defect — but it
+must be agreed before UAT, and the UI needs copy that redirects the user to the existing
+submission channel.
 
 ### Additional boundaries this design asserts
 
@@ -388,7 +422,7 @@ states the target end-state and, importantly, what the MVP deliberately fakes.
 | 1 | Identity | Test credentials; IAP-authenticated UI | Workforce Identity Federation + corporate IdP SSO | Full OIDC SSO, conditional access, step-up auth for sensitive writes |
 | 2 | Backend authorisation | Shared service account, user ID as parameter | Per-user delegated tokens (3-legged OAuth) | End-to-end delegated authorisation; backend enforces user scope natively |
 | 3 | Tenancy | Single tenant | Single tenant, multi-department | Multi-entity with data isolation per jurisdiction |
-| 4 | Network | Public Google APIs, TLS | VPC-SC perimeter, PSC endpoints | Full perimeter, private-only egress, no public ingress |
+| 4 | Network | Single VPC, TLS, **PSC endpoints for Google APIs** (CON-6); no perimeter | **VPC-SC perimeter**, PSC extended to all egress | Full perimeter, private-only egress, no public ingress |
 | 5 | Encryption | Google-managed keys | CMEK on corpus + logs | CMEK everywhere with org-controlled rotation |
 | 6 | Availability | Single region | Single region + tested restore | Multi-region active/passive, RTO ≤ 4 h, RPO ≤ 15 min |
 | 7 | Human-in-the-loop | Confirm before every write | Risk-tiered confirmation | HITL queue for high-risk actions with HR reviewer console |
@@ -407,7 +441,7 @@ states the target end-state and, importantly, what the MVP deliberately fakes.
 | F-1 | Functional test credentials | Per-user delegated authorisation | Backend cannot enforce user scope; RBAC becomes advisory |
 | F-2 | User identity passed as a parameter | Identity carried in a signed, verifiable token | Identity spoofing between agent and backend |
 | F-3 | Single shared service account per backend | Per-agent, per-tool service accounts | Loss of least privilege and attribution granularity |
-| F-4 | Public API egress | PSC + VPC-SC | Data exfiltration path exists |
+| F-4 | Public API egress to vendor backends (PSC in place for Google APIs, but no perimeter) | VPC-SC perimeter + private-only egress | Data exfiltration path exists |
 | F-5 | Manually curated corpus | Governed publishing workflow with approval | Unapproved policy text can be cited as authoritative |
 | F-6 | No HITL queue | Reviewer console for high-risk actions | No recovery path for an incorrect but confirmed write |
 | F-7 | Single region | Multi-region DR | 99.9% availability target unmet during regional impairment |
@@ -891,6 +925,11 @@ denials usually means either an attack or a regression, and both warrant an aler
   Armor regional endpoints from inside a VPC requires a **Private Service Connect endpoint**
   — without it, Private Google Access and VPC-SC produce certificate errors. This must be
   provisioned as part of the landing zone, not discovered during integration testing.
+  **PSC is therefore in scope for MVP 1** (Phase 0, §7.4) because it is a *functional
+  dependency* of the safety layer. **A VPC Service Controls perimeter is out of scope**
+  (OOS-1) because it is an *org-level policy* requiring a dry-run tuning cycle, and MVP 1
+  holds only synthetic data. The two are frequently conflated; they are separable, and this
+  design separates them deliberately.
 - **Encryption.** In transit via TLS; at rest with Google-managed keys for MVP, CMEK from
   pilot onward.
 - **Secrets.** Backend credentials in Secret Manager, accessed by service account, never in
@@ -1089,6 +1128,13 @@ the deflection benefit.
 | `dev` | `altostrat-hr-agent-dev` | Synthetic | Development, unit tests |
 | `staging` | `altostrat-hr-agent-stg` | Synthetic, production-shaped | Evaluation gate, UAT |
 | `prod` | `altostrat-hr-agent-prd` | Sandbox tenants (MVP) | Demonstration, pilot |
+
+> [!IMPORTANT]
+> **`prod` is not production during MVP 1.** It is the highest environment in the promotion
+> chain, but it runs against vendor **sandbox tenants with synthetic data**. The enterprise
+> controls deferred in §1.2 (VPC-SC, CMEK, SSO, multi-region DR) are therefore absent from
+> `prod` by design, not by oversight. Promotion of this environment to genuine production
+> requires the production gate in §2.2 to be cleared first.
 
 ## 7.2 What is versioned
 
