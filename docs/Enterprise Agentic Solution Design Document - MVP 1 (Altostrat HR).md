@@ -439,8 +439,8 @@ testable statement of what each agent may never do.
 | :---- | :---- | :---- | :---- | :---- |
 | **Root Orchestrator** | Pro | *(none — delegation only)* | Route, clarify, decompose UC-2.x, assemble responses, request confirmation | Call any backend tool directly; invent policy content; proceed with a write without explicit confirmation |
 | **Policy Agent** | Pro | `search_policy` (read-only) | Retrieve, synthesise grounded answers, cite, refuse when context is insufficient | Hold any write tool; answer from parametric knowledge; cite a document it did not retrieve |
-| **WorkWeek Agent** | Flash | `get_profile`, `get_leave_balance`, `update_contact`, `submit_leave` | Read profile/balances; submit validated changes | Bypass the PDP; read another employee's record; touch payroll/comp/performance |
-| **ServiceImmediately Agent** | Flash | `get_ticket`, `create_incident`, `add_comment`, `update_status` | Query and manage tickets | Skip lifecycle validation; set priority contrary to policy; close a ticket the user did not resolve |
+| **WorkWeek Agent** | Flash | `get_profile`, `get_personal_info`, `get_leave_balance`, `get_leave_requests`, `update_contact`, `submit_leave`, `cancel_leave` | Read profile/balances/history; submit, and cancel with confirmation | Bypass the PDP; read another employee's record; **call `get_employee_feedback` (B-5) or any token-management API**; resolve its own identity from the backend |
+| **ServiceImmediately Agent** | Flash | `get_ticket`, `list_tickets`, `create_incident`, `add_comment`, `update_status` | Query and manage tickets | Skip lifecycle validation; set priority contrary to policy; close a ticket the user did not resolve; **use the backend's more permissive `New → Closed` transition** |
 
 **Delegation is one-way.** Sub-agents return to the orchestrator and never call one another
 directly. This keeps the trajectory linear and auditable — a precondition for the trajectory
@@ -618,8 +618,16 @@ leaves no residue.
 
 ## 3.6 Failure path — partial completion and compensation
 
-UC-2.2 is the hard case: leave is submitted in WorkWeek, then the ITSM step fails. Some HCM
-transactions **cannot be cleanly reversed**, so "just roll back" is not available.
+UC-2.2 is the hard case: leave is submitted in WorkWeek, then the ITSM step fails.
+
+> [!NOTE]
+> **Revised in light of the verified backend contract.** An earlier draft argued that HCM
+> transactions "cannot be cleanly reversed". That is **not true of this backend**: WorkWeek exposes
+> `cancel_leave_request`, which cancels a pending or approved request **and refunds the days**.
+> Reversal is therefore technically available, and the design must not claim otherwise.
+>
+> The conclusion nevertheless stands, for a different and better reason: **not because we cannot
+> reverse, but because reversing without asking would itself be an unconfirmed write (B-3).**
 
 ```mermaid
 sequenceDiagram
@@ -640,19 +648,33 @@ sequenceDiagram
     I-->>R: 503 after retries (NFR-4.2)
     R->>LG: step 2 FAILED
 
-    Note over R,LG: Step 1 is NOT auto-reversed.<br/>Reversal would be a second<br/>unconfirmed write.
+    Note over R,LG: Step 1 is NOT auto-reversed.<br/>Reversal is possible, but would be<br/>a second unconfirmed write.
 
     R->>LG: saga = PARTIALLY_COMPLETE
     R->>OPS: reconciliation task + full context
-    R-->>U: "Your leave is submitted (LR-90112).<br/>I couldn't raise the IT request —<br/>HR Ops has been notified. Ref SAGA-7741."
+    R-->>U: "Your leave is submitted (LR-90112).<br/>I couldn't raise the IT request —<br/>HR Ops notified. Ref SAGA-7741."
+
+    alt User asks to undo
+        U->>R: "Then cancel the leave too."
+        R-->>U: "Cancel LR-90112 and refund 5 days?"
+        U->>R: "Yes"
+        R->>W: cancel_leave(LR-90112)
+        W-->>R: cancelled, days refunded
+        R->>LG: saga = COMPENSATED
+    end
 ```
 
 > [!IMPORTANT]
-> **Automatic compensation is deliberately not attempted here.** Silently reversing a
-> committed leave request would be an unconfirmed write with real payroll consequences. The
-> design instead guarantees three things: the user is told *exactly* what did and did not
-> happen, a durable reconciliation record exists, and a human owns the remainder. This
-> satisfies NFR-4.3 while respecting B-3.
+> **Compensation is offered, never performed autonomously.** The design guarantees four things: the
+> user is told *exactly* what did and did not happen; a durable reconciliation record exists; a human
+> owns the remainder; and **the user is offered a one-step, explicitly confirmed undo** where the
+> backend supports it. This satisfies NFR-4.3 — which permits "compensating actions" — while
+> respecting B-3.
+>
+> **Why not auto-compensate on failure?** Because the second write is not obviously the user's intent.
+> An employee whose medical leave was submitted successfully may well want to keep it and raise the IT
+> ticket manually. Silently unwinding it would be the system substituting its own judgement for theirs
+> on a decision with payroll consequences.
 
 ## 3.7 Grounding design for this specific corpus
 
@@ -691,16 +713,33 @@ downgraded"*.
 The source document is therefore explicit that these are **programmatic** controls. They are
 extracted into a **versioned rules configuration** consumed by the PDP:
 
-| Rule ID | Source | Enforcement |
-| :---- | :---- | :---- |
-| `LEAVE_BALANCE_CAP` | §1.2, §20 | Requested days ≤ remaining accrued |
-| `LEAVE_CHRONOLOGY` | §1.2 | `start ≤ end`; no past dates |
-| `LEAVE_NOTICE_15D` | §1.2 | Warn below 15 days' notice |
-| `TICKET_LIFECYCLE` | §5.5 | Transition must follow New → In Progress → Resolved → Closed |
-| `TICKET_PRIORITY_FLOOR` | §5.5 | Downgrade non-qualifying Critical/High claims |
-| `TICKET_DEDUPE` | FR-4.3 | Ledger scan for similar recent tickets |
-| `EQUIP_ELIGIBILITY` | §5.4 | Requires `Remote`/`Hybrid`; `$500` cap |
-| `RELOCATION_CAP` | §5.5 | `$10,000` cap; Facilities ticket at Priority `3 - Moderate` |
+| Rule ID | Source | Enforcement | Backend already enforces? |
+| :---- | :---- | :---- | :---- |
+| `LEAVE_BALANCE_CAP` | §1.2, §20 | Requested days ≤ remaining accrued | ✅ Yes — we duplicate for pre-flight UX |
+| `LEAVE_CHRONOLOGY` | §1.2 | `start ≤ end`; no past dates | ✅ Yes — we duplicate for pre-flight UX |
+| `LEAVE_NOTICE_15D` | §1.2 | Warn below 15 days' notice | ❌ **No — ours alone** |
+| `TICKET_LIFECYCLE` | §5.5 | New → In Progress → Resolved → Closed | ⚠️ **Partially — backend is more permissive** |
+| `TICKET_PRIORITY_FLOOR` | §5.5 | Downgrade non-qualifying Critical/High claims | ⚠️ Backend rejects; we **downgrade with explanation** |
+| `TICKET_DEDUPE` | FR-4.3 | Ledger scan for similar recent tickets | ✅ Yes — 5-minute window |
+| `EQUIP_ELIGIBILITY` | §5.4 | Requires `Remote`/`Hybrid`; `$500` cap | ❌ **No — ours alone** |
+| `RELOCATION_CAP` | §5.5 | `$10,000` cap; Facilities ticket at Priority `3 - Moderate` | ❌ **No — ours alone** |
+| `CONTACT_FORMAT` | FR-3.3 | Address ≥ 5 chars; phone `^\+?[\d\s\-()]{7,20}$` | ✅ Yes — we mirror the exact regex |
+
+> [!IMPORTANT]
+> **The last column is the justification for the PDP existing at all, and it splits three ways.**
+>
+> 1. **Duplicated rules** (✅) are deliberate defence in depth. Validating pre-flight lets the agent
+>    say *"that exceeds your 5.0 remaining days"* conversationally instead of surfacing a backend
+>    rejection — and it means a backend change cannot silently relax a policy we rely on.
+> 2. **Rules the backend does not have** (❌) — notice period, equipment eligibility, relocation cap —
+>    exist **only** in our PDP. Without it these handbook policies would be unenforced entirely.
+> 3. **`TICKET_LIFECYCLE` is the divergence that matters.** The backend permits `New → Closed` and
+>    `Resolved → In Progress`; the handbook prohibits skipping states outright. **The backend is more
+>    permissive than company policy**, so the PDP is the only thing standing between a user request
+>    and a policy breach that the system of record would happily accept.
+>
+> Where the two disagree, **the handbook wins and the PDP enforces it** — with the divergence logged,
+> because a backend that silently relaxes policy is itself a finding for the document owner.
 
 **Why this matters:** when HR changes the vacation notice period from 15 to 10 days, the
 change is a config edit with a version bump and a regression test — not a prompt rewrite
@@ -723,6 +762,76 @@ FR-2.2 requires multi-turn continuity without leaking across sessions.
 Sessions are keyed to the authenticated identity and isolated by construction; a new session
 begins with no prior employee data. Transcripts are SPII-de-identified before persistence
 (§4.5).
+
+## 3.10 Experience Plane — frontend, streaming and trust affordances
+
+§1.3 named the Chat UI as a hosting choice. This section specifies it as an **architectural
+component**, because three hard requirements are discharged in the frontend and nowhere else:
+clickable citations (FR-5.3), confirm-before-write (B-3), and the perception of latency (NFR-2.1).
+
+### D8 · Frontend framework
+
+| Criterion (weight) | **React + Vite (chosen)** | Streamlit | Mesop / Gradio |
+| :---- | :---- | :---- | :---- |
+| Custom citation & trace components (30%) | 5 | 2 | 2 |
+| Streaming / incremental render control (25%) | 5 | 2 | 3 |
+| Demo polish & credibility (20%) | 5 | 3 | 2 |
+| Time to first working UI (15%) | 3 | 5 | 5 |
+| Path to enterprise embedding (10%) | 5 | 2 | 1 |
+| **Weighted score** | **4.70** | **2.65** | **2.55** |
+
+**Chosen: ReactJS (React + Vite, TypeScript).** The decisive criterion is that the two highest-value
+UI behaviours in this solution — an inline citation that resolves to an exact handbook clause, and a
+live view of the agent's plan — are **custom components**. Frameworks optimised for rapid internal
+tooling render chat turns well but make bespoke components disproportionately expensive.
+
+- **Rejected — Streamlit/Mesop/Gradio:** excellent for a prototype, but re-running the script on each
+  interaction fights against token-level streaming and stateful confirmation cards.
+- *Revisit if:* the UI is later absorbed into an existing enterprise chat client, at which point the
+  frontend becomes a rendering contract rather than an application.
+
+### Agent–UI communication
+
+The UI consumes **AG-UI** (Agent–User Interaction protocol) over SSE from the Cloud Run BFF, rather
+than a request/response JSON API. This matters for more than aesthetics:
+
+| Event | UI behaviour | Requirement served |
+| :---- | :---- | :---- |
+| `TEXT_MESSAGE_CONTENT` | Token-by-token render | NFR-2.1 — perceived latency |
+| `TOOL_CALL_START` / `_END` | Trace panel: "checking your WorkWeek profile…" | Explainability; demo beat 2 |
+| `STATE_DELTA` | Confirmation card materialises with parsed intent | B-3 confirm-before-write |
+| `CUSTOM: citation` | Citation chip bound to `content_hash` + heading slug | FR-5.3 |
+| `CUSTOM: guardrail_block` | Refusal surface with escalation route | FR-1.3, FR-5.4 |
+| `RUN_ERROR` | Non-technical failure copy from the §5.4 table | NFR-4.1 |
+
+> [!IMPORTANT]
+> **Streaming is load-bearing for the latency target, not a nicety.** §9.4 argues the meaningful
+> metric is time-to-first-token, and proposes overlapping the output safety scan with streaming.
+> Both depend on a transport that can emit partial responses — which a synchronous request/response
+> UI cannot. **The frontend choice and the NFR-2.1 mitigation are the same decision.**
+
+### Citation rendering (FR-5.3)
+
+Citations resolve against the `content_hash` + heading slug anchor defined in §3.7 (C-4), never the
+printed section number. The chip displays the **`semantic_topic`** label rather than the raw heading —
+which is what prevents the C-1 defect from surfacing a relocation answer cited as
+*"Community Guidelines"*. Clicking opens the governed corpus at the anchor with the passage highlighted.
+
+### Confirmation and refusal affordances
+
+- **Confirmation card**, not free-text "yes". Renders the parsed intent as structured fields
+  (dates, type, day count, resulting balance) with explicit Confirm / Cancel. This removes the
+  ambiguity of interpreting "yeah ok" as consent for an irreversible write, and makes B-3 a UI
+  invariant rather than a prompt instruction.
+- **Refusals render as a first-class state**, not an error — with the §5.4 escalation route attached.
+  Per §3.3, a refusal is a success outcome and must not look like a malfunction.
+
+### Hosting and identity
+
+Cloud Run behind an external Application Load Balancer with **IAP**; ingress restricted to
+`internal-and-cloud-load-balancing` (§1.5). The React bundle is a static artefact; the Cloud Run
+service is a thin BFF that terminates AG-UI, resolves the IAP assertion to `employee_id`, and holds
+**no business logic** — all validation remains in the PDP per §1.3.
 
 ---
 
@@ -912,28 +1021,129 @@ prompt: vendor API translation, idempotency, retry/timeout policy, and audit sta
 
 | Attribute | WorkWeek (HCM) | ServiceImmediately (ITSM) |
 | :---- | :---- | :---- |
-| Pattern | Workday-style REST, resource-oriented | ServiceNow-style Table API |
-| Auth (MVP) | Functional test credentials in Secret Manager | Functional test credentials in Secret Manager |
-| Auth (target) | 3-legged OAuth, per-user delegated | OAuth client credentials + on-behalf-of attribution |
-| Consistency | Strongly consistent reads | Eventually consistent on some views |
-| Idempotency | Native support varies → ACL-managed keys | `correlation_id` used for duplicate suppression |
+| Host (MVP) | `mock-saas.<demo-domain>` — *Unified Mock Enterprise Services v1.0.0* | same host |
+| **Native MCP endpoint** | `/work-week/mcp/` | `/service-immediately/mcp/` |
+| REST endpoint | `/work-week/api/…` | `/service-immediately/api/…` |
+| MCP transport | **Stateless Streamable HTTP** (FastMCP) | Stateless Streamable HTTP |
+| **Auth — MCP (MVP)** | **Personal Access Token in `X-MCP-Token`** | same token scheme |
+| Auth — REST (MVP) | IAP-supplied `x-goog-authenticated-user-email` | same |
+| Auth (target) | 3-legged OAuth, per-user delegated | OAuth client credentials + on-behalf-of |
+| **Tenant isolation** | **Enforced server-side** — callers may only act on their own `employee_id` | **Enforced server-side** |
+| Server-side validation | Date format/chronology, balance sufficiency, phone regex, address length | 5-minute duplicate rejection, Critical-priority keyword check, status state machine |
+
+> [!IMPORTANT]
+> **The backends ship their own MCP servers.** This was not anticipated in D4 and it forces an
+> explicit decision, because the obvious path — binding ADK's `McpToolset` straight to the vendor URL,
+> exactly as the vendor's own documentation demonstrates — **would route every write around the Policy
+> Decision Point**. That would dismantle the single most important control in this architecture (§1.3).
+
+### D9 · Vendor-native MCP — direct binding vs. interception
+
+| Criterion (weight) | **ACL as MCP proxy (chosen)** | Direct `McpToolset` to vendor |
+| :---- | :---- | :---- |
+| PDP enforceable on writes (35%) | 5 | **1 — bypassed entirely** |
+| Idempotency & saga ledger (20%) | 5 | 1 |
+| Audit stamping / attribution (20%) | 5 | 2 |
+| Capability manifest control, FR-1.1 (15%) | 5 | 2 |
+| Time to first working call (10%) | 2 | 5 |
+| **Weighted score** | **4.70** | **1.75** |
+
+**Chosen: the ACL remains, re-cast as an MCP interception proxy.** Its job changes from *REST-to-MCP
+translation* to **MCP-to-MCP mediation**: it exposes a curated tool surface to the agents, applies the
+PDP to every mutating call, stamps attribution, records idempotency keys, and only then forwards to
+the vendor MCP server.
+
+```
+Sub-agent ──MCP──▶ ACL (Cloud Run)  ──▶ PDP: allow/deny + idempotency key
+                        │                      │
+                        │                      ▼
+                        └──MCP + X-MCP-Token──▶ vendor /work-week/mcp/
+```
+
+> [!NOTE]
+> **The vendor's own quick-start is the anti-pattern here, and that is worth stating plainly.** Their
+> Option A wires `McpToolset` directly into the agent. It is the fastest path to a working demo and it
+> is precisely what this design rejects: it makes the model the last line of defence before a write to
+> an HR system of record. D9 costs roughly one extra hop and preserves the entire §1.3 control model.
+
+### Authentication mechanics
+
+Tokens are minted at `POST /api/mcp-tokens`, stored in **Secret Manager**, and injected by the ACL as
+a custom header. The custom header is not stylistic: **Google Front End intercepts and validates
+standard `Authorization` headers**, so the bearer token must travel as `X-MCP-Token`.
+
+> [!CAUTION]
+> **Shared-PAT identity collapse — the most consequential MVP constraint discovered.**
+>
+> The backend enforces tenant isolation by resolving the caller's identity from the token
+> (`get_current_employee_id()`), and **refuses any action on another employee's records**. A single
+> shared service PAT therefore makes the entire system act as **one employee**. Consequences:
+>
+> - Every session would read and write that one person's leave balance, regardless of who is logged in.
+> - The cross-user isolation red-team category in §9.3 would pass **for the wrong reason** — the backend
+>   would block it, so the test would not exercise our controls at all.
+> - The demo cannot show two different employees.
+>
+> **Resolution required before Phase 2 (OQ-12).** Options: (a) provision **one PAT per demo persona**,
+> held in Secret Manager and selected by the ACL from the verified IAP identity — recommended, as it
+> preserves genuine per-user scope; (b) accept a single-persona MVP and descope cross-user testing.
+
+> [!TIP]
+> **This materially improves the F-1/F-2 position, and §2.2 should be read in that light.** F-1 asserts
+> "backend cannot enforce user scope; RBAC becomes advisory". That is **no longer true** — this backend
+> enforces scope natively. With per-persona PATs (option a), FR-1.5 moves from *advisory* to *enforced
+> at the system of record*, which is a stronger MVP posture than the design originally assumed.
 
 ## 5.2 Tool contract catalogue
 
 The authoritative capability manifest (FR-1.1). Any invocation outside this table is blocked
-at `before_tool_callback` and logged as a denial.
+at `before_tool_callback` and logged as a denial. **Tool names are those published by the vendor
+MCP servers**; the ACL re-exposes them unchanged so that traces remain comparable to backend logs.
 
-| Tool | System | Verb | Mutating | Timeout | Retry | Pre-conditions |
+| Agent tool | Vendor MCP tool | System | Mutating | Timeout | Retry | PDP pre-conditions |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| `search_policy` | Corpus | read | No | 3 s | 2× backoff | Jurisdiction filter applied |
-| `get_profile` | WorkWeek | read | No | 5 s | 3× backoff | Scoped to caller |
-| `get_leave_balance` | WorkWeek | read | No | 5 s | 3× backoff | Scoped to caller |
-| `update_contact` | WorkWeek | write | **Yes** | 8 s | **None** | Format validation; user confirmation |
-| `submit_leave` | WorkWeek | write | **Yes** | 8 s | **None** | Balance + chronology + notice; confirmation |
-| `get_ticket` | ServiceImmediately | read | No | 5 s | 3× backoff | Requestor must be caller |
-| `create_incident` | ServiceImmediately | write | **Yes** | 8 s | **None** | Dedupe scan; priority validation; confirmation |
-| `add_comment` | ServiceImmediately | write | **Yes** | 5 s | **None** | Ticket ownership |
-| `update_status` | ServiceImmediately | write | **Yes** | 5 s | **None** | Lifecycle transition valid |
+| `search_policy` | *(internal — corpus)* | Corpus | No | 3 s | 2× backoff | Jurisdiction filter applied |
+| `get_profile` | `workweek://…/profile` | WorkWeek | No | 5 s | 3× backoff | Scoped to caller |
+| `get_personal_info` | `get_personal_info` | WorkWeek | No | 5 s | 3× backoff | Scoped to caller |
+| `get_leave_balance` | `get_employee_balances` | WorkWeek | No | 5 s | 3× backoff | Scoped to caller |
+| `get_leave_requests` | `get_leave_requests` | WorkWeek | No | 5 s | 3× backoff | Scoped to caller |
+| `update_contact` | `update_personal_info` | WorkWeek | **Yes** | 8 s | **None** | Address ≥ 5 chars; phone matches `^\+?[\d\s\-()]{7,20}$`; confirmation |
+| `submit_leave` | `request_time_off` | WorkWeek | **Yes** | 8 s | **None** | Balance + chronology + `YYYY-MM-DD` + notice warning; confirmation |
+| **`cancel_leave`** | `cancel_leave_request` | WorkWeek | **Yes** | 8 s | **None** | Caller owns request; confirmation. **Compensating action — see §3.6** |
+| `get_ticket` | `serviceimmediately://tickets/{id}` | ServiceImmediately | No | 5 s | 3× backoff | Requestor must be caller |
+| `list_tickets` | `list_tickets` | ServiceImmediately | No | 5 s | 3× backoff | Scoped to caller |
+| `create_incident` | `create_ticket` | ServiceImmediately | **Yes** | 8 s | **None** | Dedupe scan; priority validation; confirmation |
+| `add_comment` | `add_ticket_comment` | ServiceImmediately | **Yes** | 5 s | **None** | Ticket ownership |
+| `update_status` | `update_ticket_status` | ServiceImmediately | **Yes** | 5 s | **None** | **Handbook lifecycle (stricter than backend)**; B-8 |
+
+### Explicitly not exposed
+
+The mock host publishes capabilities that must never reach an agent. Omission is not sufficient —
+these are **named denials** in the manifest so that an attempted call is logged rather than merely
+failing:
+
+| Endpoint / tool | Why it is denied |
+| :---- | :---- |
+| `GET /work-week/api/employees/{id}/feedback` | **Performance-adjacent data. Violates B-5** (no payroll, comp or performance). The BRD places this out of scope in §2.3 |
+| `POST /api/mcp-tokens` | Credential minting. An agent able to issue tokens could escalate its own privilege |
+| `GET /api/mcp-tokens`, `DELETE /api/mcp-tokens/{id}` | Credential enumeration and denial of service |
+| `PUT /…/timeoff/requests/{request_id}` (amend) | Deferred: amendment semantics overlap `cancel` + `submit` and double the confirmation surface. Revisit post-MVP |
+| `get_current_employee_id` | Identity must derive from the verified IAP context (§4.4), **never** from a backend lookup the model can invoke |
+
+> [!CAUTION]
+> **`get_current_employee_id` is the subtle one.** It is convenient and it is a trap: allowing the
+> model to *ask the backend who it is* creates a second, model-reachable source of identity that
+> competes with the authenticated context. §4.4's guarantee — "`employee_id` comes only from IAP,
+> never from the prompt" — holds only if there is exactly one source. The ACL resolves identity
+> itself and injects it; the tool is not published to the agents.
+
+> [!IMPORTANT]
+> **Where backend validation and handbook policy disagree, the PDP enforces the handbook.** The
+> backend's status machine permits `New → Closed` and `Resolved → In Progress`. Handbook §5.5 states
+> that *"bypassing intermediate states … is strictly prohibited"*. The backend is therefore **more
+> permissive than policy**, and the PDP is what closes the gap (§5.3). This is a concrete vindication
+> of D9: had the agent bound directly to the vendor MCP, a ticket could be driven `New → Closed` in
+> one step in direct contravention of the handbook.
 
 > [!IMPORTANT]
 > **Writes are never automatically retried.** A timeout does not mean the write failed — it
@@ -1345,37 +1555,48 @@ audit trail reviewed and accepted by Compliance.
 
 Every BRD requirement mapped to its design element and verification method.
 
-| Req | Name | Design element | § | Verification |
-| :---- | :---- | :---- | :---- | :---- |
-| FR-1.1 | Capability & lifecycle governance | Tool manifest + `before_tool_callback`; versioned artefacts | 5.2, 7.2 | Unauthorised-tool test |
-| FR-1.2 | Verification of request origin | Identity chain + attribution headers; `actor_type` | 4.4, 4.6 | Audit record inspection |
-| FR-1.3 | Verification of conversation safety | Model Armor input + output templates | 4.2, D5 | Red-team set (§9.3) |
-| FR-1.4 | Data masking / redaction | **Advanced SDP + custom SG infoType** | 4.5 | Log inspection for SPII |
-| FR-1.5 | RBAC and data isolation | Scope from auth context; integration-tier enforcement | 4.7 | Cross-user access tests |
-| FR-2.1 | Natural language understanding | Root Orchestrator; clarification flow | 3.1 | UAT NLU assessment |
-| FR-2.2 | Multi-turn dialog | Managed sessions; isolation by identity | 3.9 | Session leakage test |
-| FR-3.1 | Delegated authorization | Attribution headers (MVP); 3LO (target) | 4.4, 2.1 | Audit inspection |
-| FR-3.2 | WorkWeek core actions | 4 HCM tools | 5.2 | UC-1.2 |
-| FR-3.3 | WorkWeek guardrails | PDP rules: balance, chronology, format | 5.3 | PDP unit tests |
-| FR-3.4 | Real-time data fetch | No caching of employee data | 3.9 | State inspection |
-| FR-4.1 | Auditable ticket creation | `actor_type` recorded on creation | 4.6 | Ticket audit review |
-| FR-4.2 | Status tracking & management | 4 ITSM tools | 5.2 | UC-1.3 |
-| FR-4.3 | ServiceImmediately guardrails | PDP: lifecycle, dedupe, priority | 5.3 | PDP unit tests |
-| FR-5.1 | Document ingestion | Ingestion pipeline with quality gate | 3.7 | Index verification |
-| FR-5.2 | Grounded answers | Grounded-only prompt + sufficiency check | 3.3 | Groundedness metric |
-| FR-5.3 | Source citation | Citation metadata; hash-based anchors | 3.7 | Citation accuracy = 100% |
-| FR-5.4 | Policy retrieval guardrails | Strict grounding; domain containment | 3.3, D5 | Unanswerable + off-topic sets |
-| FR-5.5 | Document sync latency | Scheduled + triggered re-index (**OQ-1**) | 10.1 | Sync timing test |
-| NFR-1.1 | Safety for AI interactions | Defence in depth | D5, 4.2 | Red-team set |
-| NFR-1.2 | Audit logging | Structured logs incl. denials | 4.6 | 100% coverage check |
-| NFR-1.3 | Compliance adherence | SG residency; SPII controls; retention | 4.5, 4.7 | Compliance review |
-| NFR-2.1 | Latency | Cheap path; tiering; streaming (**see §9.4**) | 3.2, 9.4 | Load test p95 |
-| NFR-2.2 | Availability 99.9% | Managed services; multi-region at prod | 2.1 | SLO monitoring |
-| NFR-2.3 | Asynchronous processing | Parallel reads; non-blocking scans | 3.5 | Trace analysis |
-| NFR-3.1 | Accuracy > 95%, 0% hallucination | Eval gate (**reframed §9.4**) | 9.4 | Release gate |
-| NFR-4.1 | Graceful failure handling | Failure-mode table; non-technical copy | 5.4 | Chaos test |
-| NFR-4.2 | Transient fault tolerance | Retry reads; **never blind-retry writes** | 5.2 | Fault injection |
-| NFR-4.3 | Orchestration consistency | Saga ledger; reconciliation task | 3.6 | Partial-failure test |
+**Status values.** `Met` — satisfied by this design at MVP. `Partial` — materially addressed but with
+a stated gap, always traceable to a §2.2 shortcut or a §9.4 reframing. `Reframed` — the literal
+requirement is not measurable as written and §9.4 proposes a testable equivalent requiring sign-off.
+`Deferred` — knowingly not delivered at MVP, with the owning phase named.
+
+> [!IMPORTANT]
+> **Nine of twenty-eight rows are not `Met`.** This is by design, not by omission — every one traces
+> to a shortcut already declared in §2.2 or a target already challenged in §9.4. The status column
+> exists so that this table cannot be read as a claim of full compliance. **A reviewer should treat
+> the `Partial`, `Reframed` and `Deferred` rows as the agenda for the production gate.**
+
+| Req | Name | Design element | § | Verification | **Status** |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| FR-1.1 | Capability & lifecycle governance | Tool manifest + `before_tool_callback`; versioned artefacts | 5.2, 7.2 | Unauthorised-tool test | **Partial** — enforced by code review, not a registry (F-8) |
+| FR-1.2 | Verification of request origin | Identity chain + attribution headers; `actor_type` | 4.4, 4.6 | Audit record inspection | **Partial** — headers are asserted, not cryptographically verified (F-2) |
+| FR-1.3 | Verification of conversation safety | Model Armor input + output templates | 4.2, D5 | Red-team set (§9.3) | **Met** |
+| FR-1.4 | Data masking / redaction | **Advanced SDP + custom SG infoType** | 4.5 | Log inspection for SPII | **Met** — conditional on advanced SDP configuration (CON-7) |
+| FR-1.5 | RBAC and data isolation | Scope from auth context; integration-tier enforcement | 4.7, 1.5 | Cross-user access tests | **Partial** — enforcement is effectively client-side at MVP (F-1) |
+| FR-2.1 | Natural language understanding | Root Orchestrator; clarification flow | 3.1 | UAT NLU assessment | **Met** |
+| FR-2.2 | Multi-turn dialog | Managed sessions; isolation by identity | 3.9 | Session leakage test | **Met** |
+| FR-3.1 | Delegated authorization | Attribution headers (MVP); 3LO (target) | 4.4, 2.1 | Audit inspection | **Partial** — no composite scoped token at MVP; **the largest MVP-to-production gap** |
+| FR-3.2 | WorkWeek core actions | 4 HCM tools | 5.2 | UC-1.2 | **Met** |
+| FR-3.3 | WorkWeek guardrails | PDP rules: balance, chronology, format | 5.3 | PDP unit tests | **Met** |
+| FR-3.4 | Real-time data fetch | No caching of employee data | 3.9 | State inspection | **Met** |
+| FR-4.1 | Auditable ticket creation | `actor_type` recorded on creation | 4.6 | Ticket audit review | **Met** |
+| FR-4.2 | Status tracking & management | 4 ITSM tools | 5.2 | UC-1.3 | **Met** — constrained by B-8 |
+| FR-4.3 | ServiceImmediately guardrails | PDP: lifecycle, dedupe, priority | 5.3 | PDP unit tests | **Met** |
+| FR-5.1 | Document ingestion | Ingestion pipeline with quality gate | 3.7 | Index verification | **Met** |
+| FR-5.2 | Grounded answers | Grounded-only prompt + sufficiency check | 3.3 | Groundedness metric | **Met** |
+| FR-5.3 | Source citation | Citation metadata; hash-based anchors | 3.7, 3.10 | Citation accuracy = 100% | **Met** |
+| FR-5.4 | Policy retrieval guardrails | Strict grounding; domain containment | 3.3, D5 | Unanswerable + off-topic sets | **Met** |
+| FR-5.5 | Document sync latency | Scheduled + triggered re-index (**OQ-1**) | 10.1 | Sync timing test | **Partial** — target value `[X]` still unset by the business |
+| NFR-1.1 | Safety for AI interactions | Defence in depth | D5, 4.2 | Red-team set | **Met** |
+| NFR-1.2 | Audit logging | Structured logs incl. denials; platform audit logs | 4.6, 1.5 | 100% coverage check | **Met** |
+| NFR-1.3 | Compliance adherence | SG residency **enforced by org policy**; SPII controls; retention | 4.5, 4.7, 1.5 | Compliance review | **Partial** — PDPA addressed; **GDPR unaddressed and made live by UC-2.3 (OQ-11)** |
+| NFR-2.1 | Latency | Cheap path; tiering; streaming; **budget in §6.6** | 3.2, 6.6, 9.4 | Load test p95 | **Reframed** — 10 s TTFT met; 300 ms scan budget renegotiated (§9.4, OQ-6) |
+| NFR-2.2 | Availability 99.9% | Managed services; multi-region at prod | 2.1 | SLO monitoring | **Deferred** — single region at MVP cannot reach 99.9% (F-7); production phase |
+| NFR-2.3 | Asynchronous processing | Parallel reads; non-blocking scans | 3.5, 6.6 | Trace analysis | **Met** |
+| NFR-3.1 | Accuracy > 95%, 0% hallucination | Eval gate (**reframed §9.4**) | 9.4 | Release gate | **Reframed** — 0% on the frozen versioned set, with regression blocking |
+| NFR-4.1 | Graceful failure handling | Failure-mode table; non-technical copy | 5.4 | Chaos test | **Met** |
+| NFR-4.2 | Transient fault tolerance | Retry reads; **never blind-retry writes** | 5.2 | Fault injection | **Met** — deliberate deviation, documented in §5.2 |
+| NFR-4.3 | Orchestration consistency | Saga ledger; reconciliation task | 3.6 | Partial-failure test | **Met** — via reconciliation, not auto-compensation (§3.6) |
 
 ---
 
@@ -1400,14 +1621,28 @@ eliminate their impact.
 | # | Finding | Location | Severity | Recommended remediation |
 | :---- | :---- | :---- | :---- | :---- |
 | Q-1 | **Relocation Allowance and ITSM lifecycle rules are filed under "Community Guidelines (Conversational Boundaries)"**, between bullets about trolling | §5.5 | **High** | Move to a Relocation section and an ITSM Standards section |
-| Q-2 | **Leftover authoring instruction** in the body: *"Here is the drafted text for the new section… You can insert this into your Altostrat Singapore handbook…"* | line 936 | **High** | Delete |
+| Q-2 | **Leftover authoring instructions in the body — three occurrences, not one.** Each reads *"Here is the drafted text for the new section based on the \[X\] document. You can insert this into your Altostrat Singapore handbook as the next section (e.g., Section N)…"* | **lines 327, 658, 936** | **High** | Delete all three |
 | Q-3 | **Two sections numbered 30** (New Employee Onboarding; Performance Management & Disciplinary Process) | §30 ×2 | Medium | Renumber |
 | Q-4 | **Terminology drift** — `Workday` used where `WorkWeek` is meant | lines 1051, 1057 | Medium | Standardise on WorkWeek |
 | Q-5 | **Duplicated policy content** at differing detail (sick §1.1/§19; vacation §1.2/§20) | multiple | Medium | Designate authoritative section; make summaries explicit cross-references |
 | Q-6 | **No stated policy** for routing email access to a manager during medical leave, though UC-2.2 assumes one | — | Medium | Author the policy, or remove the step from UC-2.2 |
 | Q-7 | Section 11 and Section 15 absent from the numbering sequence | — | Low | Confirm intentional |
+| Q-8 | **Systemic authoring-process defect.** Q-2's three occurrences share an identical template, indicating sections were pasted from generated output without editorial review. The scope of unreviewed content is therefore unknown. | corpus-wide | **High** | Editorial review pass over the whole handbook before Phase 1 sign-off (OQ-4) |
+
+> [!CAUTION]
+> **Q-8 is the finding with the widest blast radius, and it is evidence, not speculation.** Three
+> identical leftover instructions prove that at least part of this corpus is **unreviewed generated
+> text that carries imperative phrasing** — *"You can insert this into your handbook…"*. That is
+> precisely the input condition for the indirect prompt injection threat in §4.3 (T-2), and it is
+> why the §3.7 C-3 ingestion quality gate is a **requirement rather than a precaution**.
+>
+> It also means the C-1 misfiling and C-4 duplicate numbering are unlikely to be the only structural
+> defects — they are the ones visible from the outside. Until an editorial pass is complete, the
+> corpus must be treated as **semi-trusted input** (consistent with the §4.1 trust boundary), not as
+> a governed policy source.
 
 > [!TIP]
 > **Q-1 and Q-2 should be fixed before Phase 1 ingestion.** They are minutes of editing work
 > and they materially improve citation quality — by far the cheapest quality win available to
-> this programme.
+> this programme. **Q-8 is a larger commitment** and should be scoped at Phase 0 so it does not
+> become a hidden dependency on the Phase 1 exit criteria.
