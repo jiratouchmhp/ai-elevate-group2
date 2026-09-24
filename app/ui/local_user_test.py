@@ -61,11 +61,23 @@ def run_local_user_verification() -> int:
     print(f"  Google ADK Runtime    : {'Native google.adk' if ADK_NATIVE_AVAILABLE else 'ADK 2+ Compat'}")
     print("-" * 82)
 
-    # 1. Verify ADK Agent Hierarchy
+    # 1. Verify ADK Agent Hierarchy & Bidirectional `transfer_to_agent` Handoffs
+    from app.adk_compat import ToolContext
+    from app.callbacks.adk_callbacks import before_tool_guardrail_callback
+
     assert adk_app.name == "altostrat_hr_agent", f"Unexpected app name: {adk_app.name}"
     assert len(root_agent.tools) == 0, "Root agent must hold zero direct tools (SDD §3.1)"
     assert len(root_agent.sub_agents) == 3, "Root agent must delegate to 3 domain sub-agents"
-    print("  [PASS] 1/5 ADK Multi-Agent Hierarchy : root_orchestrator -> [policy, workweek, service_immediately]")
+    for source_agent in ("workweek_agent", "policy_agent", "service_immediately_agent"):
+        for target_agent in ("root_orchestrator", "workweek_agent", "policy_agent", "service_immediately_agent"):
+            t_ctx = ToolContext(session_id="sess-handoff-verify", agent_name=source_agent, state={})
+            verdict = before_tool_guardrail_callback(
+                "transfer_to_agent",
+                {"agent_name": target_agent},
+                t_ctx,
+            )
+            assert verdict is None, f"Handoff {source_agent} -> {target_agent} was blocked: {verdict}"
+    print("  [PASS] 1/5 ADK Multi-Agent & Handoff : root_orchestrator <-> [policy, workweek, service_immediately] (transfer_to_agent ALLOW)")
 
     # Start local AG-UI HTTP server on an ephemeral port
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FallbackAGUIHandler)

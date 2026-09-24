@@ -168,6 +168,38 @@ class TestSafetyAndACL(unittest.TestCase):
         }
         self.assertTrue(required_keys.issubset(set(hit["citations"][0].keys())))
 
+    def test_adk_transfer_to_agent_allowed_for_subagents_and_unauthorized_target_blocked(self) -> None:
+        from app.adk_compat import ToolContext
+        from app.callbacks.adk_callbacks import before_tool_guardrail_callback
+
+        state = {"authenticated_employee_id": "EMP-836", "audit_logger": self.audit}
+        ctx = ToolContext(session_id="sess-adk-transfer", agent_name="workweek_agent", state=state)
+
+        # Handoff from workweek_agent -> root_orchestrator or service_immediately_agent must be ALLOWED (None)
+        res_root = before_tool_guardrail_callback(
+            "transfer_to_agent",
+            {"agent_name": "root_orchestrator"},
+            ctx,
+        )
+        self.assertIsNone(res_root)
+
+        res_peer = before_tool_guardrail_callback(
+            "transfer_to_agent",
+            {"agent_name": "service_immediately_agent"},
+            ctx,
+        )
+        self.assertIsNone(res_peer)
+
+        # Handoff to an unknown/unauthorized agent name must be DENIED
+        res_unauth = before_tool_guardrail_callback(
+            "transfer_to_agent",
+            {"agent_name": "rogue_external_agent"},
+            ctx,
+        )
+        self.assertIsNotNone(res_unauth)
+        self.assertEqual(res_unauth["status"], "DENIED")
+        self.assertEqual(res_unauth["rule_id"], "ADK_AGENT_TRANSFER_UNAUTHORIZED")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,6 +62,16 @@ FORBIDDEN_SESSION_CACHE_KEYS = (
     "nric",
 )
 
+# Authorized ADK multi-agent hierarchy roster for native `transfer_to_agent` handoffs
+AUTHORIZED_ADK_AGENTS = frozenset(
+    {
+        "root_orchestrator",
+        "policy_agent",
+        "workweek_agent",
+        "service_immediately_agent",
+    }
+)
+
 
 def scrub_dynamic_employee_state(state: Any) -> None:
     """Enforces FR-3.4 & §3.9: Leave balances and profile fields are NEVER cached in session state."""
@@ -303,6 +313,39 @@ def before_tool_guardrail_callback(
             "status": "DENIED",
             "rule_id": "FR-1.1_EXPLICIT_DENIAL",
             "message": f"Blocked by capability manifest: {reason}",
+        }
+
+    if tool_name == "transfer_to_agent":
+        target_agent = str(args.get("agent_name", "")).strip()
+        if target_agent in AUTHORIZED_ADK_AGENTS:
+            audit.record(
+                session_id=session_id,
+                employee_id=employee_id,
+                agent_id=spiffe_id,
+                tool_invoked=tool_name,
+                tool_args_redacted=DEFAULT_SDP.redact_dict(args),
+                pdp_decision="ALLOW",
+                pdp_rule_id="ADK_AGENT_TRANSFER_ALLOW",
+                outcome="SUCCESS",
+                notes=f"Authorized ADK agent handoff from '{agent_name}' to '{target_agent}'.",
+            )
+            return None
+
+        audit.record(
+            session_id=session_id,
+            employee_id=employee_id,
+            agent_id=spiffe_id,
+            tool_invoked=tool_name,
+            tool_args_redacted=DEFAULT_SDP.redact_dict(args),
+            pdp_decision="DENY",
+            pdp_rule_id="ADK_AGENT_TRANSFER_UNAUTHORIZED",
+            outcome="DENIED",
+            notes=f"Blocked unauthorized ADK transfer target '{target_agent}' from '{agent_name}'.",
+        )
+        return {
+            "status": "DENIED",
+            "rule_id": "ADK_AGENT_TRANSFER_UNAUTHORIZED",
+            "message": f"Target agent '{target_agent}' is not in the authorized agent roster.",
         }
 
     spec = TOOL_CONTRACT_CATALOGUE.get(tool_name)
