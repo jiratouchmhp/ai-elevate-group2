@@ -103,13 +103,23 @@ resource "google_secret_manager_secret" "persona_mcp_tokens" {
   depends_on = [google_project_service.enabled_apis]
 }
 
-# 3. Firestore Transaction Ledger (Idempotency + Saga State, §1.3 & §3.6)
+# 3. Firestore Audit & Transaction Ledger Databases (Idempotency, Saga State & BDD Audit Trail, §1.3, §3.6, §4.6)
+resource "google_firestore_database" "default_database" {
+  project                 = var.project_id
+  name                    = "(default)"
+  location_id             = var.region
+  type                    = "FIRESTORE_NATIVE"
+  delete_protection_state = "DELETE_PROTECTION_DISABLED"
+  depends_on              = [google_project_service.enabled_apis]
+}
+
 resource "google_firestore_database" "transaction_ledger" {
-  project     = var.project_id
-  name        = "hr-agent-transaction-ledger"
-  location_id = var.region
-  type        = "FIRESTORE_NATIVE"
-  depends_on  = [google_project_service.enabled_apis]
+  project                 = var.project_id
+  name                    = "hr-agent-transaction-ledger"
+  location_id             = var.region
+  type                    = "FIRESTORE_NATIVE"
+  delete_protection_state = "DELETE_PROTECTION_DISABLED"
+  depends_on              = [google_project_service.enabled_apis]
 }
 
 # 4. BigQuery Audit & Evaluation Warehouse (NFR-1.2, §4.6, §9)
@@ -187,9 +197,21 @@ resource "google_cloud_run_v2_service" "acl_pdp_service" {
         name  = "USE_CLOUD_RAG"
         value = "true"
       }
+      env {
+        name  = "USE_FIRESTORE"
+        value = "true"
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = google_firestore_database.transaction_ledger.name
+      }
+      env {
+        name  = "FIRESTORE_LOCATION"
+        value = var.region
+      }
     }
   }
-  depends_on = [google_artifact_registry_repository.hr_agent_repo]
+  depends_on = [google_artifact_registry_repository.hr_agent_repo, google_firestore_database.transaction_ledger]
 }
 
 # 7. Cloud Run Experience Plane: React + AG-UI BFF behind IAP (§1.3, §3.10, D8)
@@ -233,13 +255,29 @@ resource "google_cloud_run_v2_service" "chat_ui_bff" {
         name  = "USE_CLOUD_RAG"
         value = "true"
       }
+      env {
+        name  = "USE_FIRESTORE"
+        value = "true"
+      }
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = google_firestore_database.transaction_ledger.name
+      }
+      env {
+        name  = "FIRESTORE_LOCATION"
+        value = var.region
+      }
     }
   }
-  depends_on = [google_artifact_registry_repository.hr_agent_repo]
+  depends_on = [google_artifact_registry_repository.hr_agent_repo, google_firestore_database.transaction_ledger]
 }
 
 output "project_id" {
   value = var.project_id
+}
+
+output "firestore_database_name" {
+  value = google_firestore_database.transaction_ledger.name
 }
 
 output "policy_corpus_bucket_uri" {
@@ -257,3 +295,4 @@ output "acl_pdp_service_uri" {
 output "chat_ui_bff_uri" {
   value = google_cloud_run_v2_service.chat_ui_bff.uri
 }
+

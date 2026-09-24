@@ -98,6 +98,7 @@ bff = AGUIServerBFF()
 
 
 def build_health_payload() -> Dict[str, Any]:
+    fs_store = bff.runtime.ledger.firestore
     return {
         "status": "ok",
         "project_id": os.environ.get("GOOGLE_CLOUD_PROJECT", "ai-training-van-01"),
@@ -107,12 +108,53 @@ def build_health_payload() -> Dict[str, Any]:
         "use_cloud_rag": bff.runtime.retriever.use_cloud_rag,
         "mcp_server_base_url": get_mcp_base_url(),
         "use_live_mcp": is_live_mcp_enabled(default=True),
+        "firestore_database": fs_store.active_database_id,
+        "use_firestore": fs_store.use_firestore,
+        "firestore_status": fs_store.status_summary(),
         "default_employee_id": resolve_iap_employee_id(None),
         "agent_version": AGENT_VERSION,
         "rules_version": RULES_VERSION,
         "corpus_version": CORPUS_VERSION,
         "indexed_policy_chunks": len(bff.runtime.retriever.chunks),
     }
+
+
+def build_audit_payload(
+    *,
+    session_id: Optional[str] = None,
+    denials_only: bool = False,
+    prefer_remote: bool = False,
+) -> Dict[str, Any]:
+    if denials_only:
+        records = bff.runtime.audit.get_denials(prefer_remote=prefer_remote)
+    elif session_id:
+        records = bff.runtime.audit.get_by_session(
+            session_id, prefer_remote=prefer_remote
+        )
+    else:
+        records = (
+            bff.runtime.audit.list_remote_records(limit=50)
+            if prefer_remote
+            else bff.runtime.audit.records
+        )
+    return {
+        "project_id": bff.runtime.audit.firestore.project_id,
+        "database_id": bff.runtime.audit.firestore.active_database_id,
+        "count": len(records),
+        "records": [r.to_dict() for r in records],
+    }
+
+
+def build_ledger_payload() -> Dict[str, Any]:
+    ledger = bff.runtime.ledger
+    return {
+        "project_id": ledger.firestore.project_id,
+        "database_id": ledger.firestore.active_database_id,
+        "entries": [e.to_dict() for e in ledger._entries.values()],
+        "sagas": [s.to_dict() for s in ledger._sagas.values()],
+        "hr_ops_reconciliation_queue": [t.to_dict() for t in ledger.hr_ops_queue],
+    }
+
 
 
 def handle_chat_payload(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, Any]:
@@ -360,6 +402,24 @@ try:
         body = await request.json()
         return JSONResponse(handle_rag_search_payload(body))
 
+    @app.get("/api/audit")
+    async def audit_endpoint(
+        session_id: Optional[str] = None,
+        denials_only: bool = False,
+        prefer_remote: bool = False,
+    ) -> JSONResponse:
+        return JSONResponse(
+            build_audit_payload(
+                session_id=session_id,
+                denials_only=denials_only,
+                prefer_remote=prefer_remote,
+            )
+        )
+
+    @app.get("/api/ledger")
+    async def ledger_endpoint() -> JSONResponse:
+        return JSONResponse(build_ledger_payload())
+
     @app.get("/", response_class=HTMLResponse)
     async def index_page() -> str:
         return INDEX_HTML
@@ -375,6 +435,22 @@ class _FallbackAGUIHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/health":
             self._send_json(build_health_payload())
+            return
+        if parsed.path == "/api/audit":
+            qs = parse_qs(parsed.query)
+            session_id = qs.get("session_id", [None])[0]
+            denials_only = qs.get("denials_only", ["false"])[0].lower() == "true"
+            prefer_remote = qs.get("prefer_remote", ["false"])[0].lower() == "true"
+            self._send_json(
+                build_audit_payload(
+                    session_id=session_id,
+                    denials_only=denials_only,
+                    prefer_remote=prefer_remote,
+                )
+            )
+            return
+        if parsed.path == "/api/ledger":
+            self._send_json(build_ledger_payload())
             return
         if parsed.path == "/api/chat/stream":
             qs = parse_qs(parsed.query)

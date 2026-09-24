@@ -35,6 +35,9 @@ WORKWEEK_MCP_URL ?= $(MCP_SERVER_BASE_URL)/work-week/mcp/
 SERVICE_IMMEDIATELY_MCP_URL ?= $(MCP_SERVER_BASE_URL)/service-immediately/mcp/
 MCP_AUTHENTICATED_EMPLOYEE_ID ?= EMP-836
 USE_LIVE_MCP     ?= true
+USE_FIRESTORE    ?= true
+FIRESTORE_DATABASE ?= hr-agent-transaction-ledger
+FIRESTORE_LOCATION ?= $(REGION)
 AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 
 .DEFAULT_GOAL := help
@@ -42,6 +45,8 @@ AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 .PHONY: help install start start-ui run start-adk local-adk start-local dev local-up \
         test-local local-user-test test \
         mcp-test mcp-unit-test mcp-integration-test mcp-e2e-test \
+        firestore-setup firestore-provision firestore-status \
+        firestore-unit-test firestore-integration-test firestore-e2e-test firestore-test \
         rag-ingest rag-test test-retrieval rag-agent-test rag-provision \
         gcp-auth-check gcp-enable-apis gcp-setup-ar \
         cloud-build docker-build \
@@ -56,13 +61,14 @@ help: ## Show available targets and current GCP configuration
 	@echo " Target RAG Region     : $(VERTEX_RAG_LOCATION)"
 	@echo " RAG Corpus Bucket     : $(RAG_BUCKET_URI)"
 	@echo " Vertex AI RAG Corpus  : $(VERTEX_RAG_CORPUS_ID) ($(VERTEX_RAG_LOCATION))"
+	@echo " Cloud Firestore DB    : $(FIRESTORE_DATABASE) ($(FIRESTORE_LOCATION), Enabled: $(USE_FIRESTORE))"
 	@echo " MCP Server Base URL   : $(MCP_SERVER_BASE_URL)"
 	@echo " MCP Auth Employee ID  : $(MCP_AUTHENTICATED_EMPLOYEE_ID)"
 	@echo " Active Python / ADK   : $(PYTHON)"
 	@echo "=============================================================================="
 	@echo ""
-	@echo "Local User Testing (UI + Google ADK + Live MCP + GCP Vertex AI RAG):"
-	@echo "  make test-local       Verify UI + ADK + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID)) + GCP RAG as user before deploy"
+	@echo "Local User Testing (UI + Google ADK + Live MCP + GCP Vertex AI RAG + Firestore):"
+	@echo "  make test-local       Verify UI + ADK + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID)) + GCP RAG + Firestore"
 	@echo "  make start-local      Run BOTH Customer Chat UI ( :$(PORT) ) & ADK Web UI ( :$(ADK_PORT) ) locally"
 	@echo "  make start            Start Customer Chat UI (FastAPI + AG-UI SSE) on http://vannick2.c.googlers.com:$(PORT)"
 	@echo "  make start-adk        Start Google ADK Developer Web UI on http://vannick2.c.googlers.com:$(ADK_PORT)"
@@ -71,6 +77,8 @@ help: ## Show available targets and current GCP configuration
 	@echo "  make install          Install/sync Python dependencies via uv / pip"
 	@echo "  make test             Run full unit, integration, E2E & golden eval test suite"
 	@echo "  make mcp-test         Run MCP Unit + Live MCP Integration + Agent MCP E2E tests"
+	@echo "  make firestore-test   Run Firestore Unit + Live GCP Integration + Agent E2E tests"
+	@echo "  make firestore-setup  Provision Cloud Firestore databases & collections in $(PROJECT_ID)"
 	@echo ""
 	@echo "RAG Policy Search (Ingestion, Retrieval Test & GCP Provisioning):"
 	@echo "  make rag-ingest       Parse handbook with C-1..C-6 gates -> $(RAG_OUTPUT_DIR)/policy_chunks.jsonl"
@@ -218,6 +226,53 @@ mcp-e2e-test: ## Run End-to-End ADK Agent -> Live MCP Server + Vertex AI RAG Eng
 	$(PYTHON) -m unittest tests/integration/test_agent_mcp_e2e.py -v
 
 mcp-test: mcp-unit-test mcp-integration-test mcp-e2e-test ## Run all MCP unit, live integration, and E2E agent tests
+
+# ------------------------------------------------------------------------------
+# 1b. GCP Cloud Firestore: Audit Logging, Transaction Ledger & FAQ Cache
+# ------------------------------------------------------------------------------
+firestore-setup: ## Provision Cloud Firestore databases (hr-agent-transaction-ledger & default) and verify collections in ai-training-van-01
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	FIRESTORE_DATABASE=$(FIRESTORE_DATABASE) \
+	FIRESTORE_LOCATION=$(FIRESTORE_LOCATION) \
+	USE_FIRESTORE=true \
+	$(PYTHON) -m app.ledger.cli setup \
+		--project-id $(PROJECT_ID) \
+		--database-id $(FIRESTORE_DATABASE) \
+		--location $(FIRESTORE_LOCATION)
+
+firestore-provision: firestore-setup ## Alias for 'make firestore-setup'
+
+firestore-status: ## Inspect Cloud Firestore database status and collection document counts in ai-training-van-01
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	FIRESTORE_DATABASE=$(FIRESTORE_DATABASE) \
+	FIRESTORE_LOCATION=$(FIRESTORE_LOCATION) \
+	USE_FIRESTORE=true \
+	$(PYTHON) -m app.ledger.cli status \
+		--project-id $(PROJECT_ID) \
+		--database-id $(FIRESTORE_DATABASE) \
+		--location $(FIRESTORE_LOCATION)
+
+firestore-unit-test: ## Run deterministic Unit tests for Firestore AuditLogger, TransactionLedger, Saga & CheapPathFAQCache
+	$(PYTHON) -m unittest tests/unit/test_firestore_audit_and_ledger.py -v
+
+firestore-integration-test: ## Run live GCP Cloud Firestore integration tests in ai-training-van-01
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	FIRESTORE_DATABASE=$(FIRESTORE_DATABASE) \
+	FIRESTORE_LOCATION=$(FIRESTORE_LOCATION) \
+	USE_FIRESTORE=true \
+	$(PYTHON) -m unittest tests/integration/test_firestore_integration.py -v
+
+firestore-e2e-test: ## Run End-to-End ADK Agent + AG-UI BFF + Live Cloud Firestore Audit & Ledger tests
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	FIRESTORE_DATABASE=$(FIRESTORE_DATABASE) \
+	FIRESTORE_LOCATION=$(FIRESTORE_LOCATION) \
+	USE_FIRESTORE=true \
+	USE_CLOUD_RAG=true \
+	USE_LIVE_MCP=true \
+	$(PYTHON) -m unittest tests/integration/test_agent_firestore_e2e.py -v
+
+firestore-test: firestore-unit-test firestore-integration-test firestore-e2e-test ## Run all Firestore Unit, Live Integration, and E2E Agent tests
+
 
 # ------------------------------------------------------------------------------
 # 2. RAG Policy Search: Ingestion, Retrieval Testing & GCP RAG Provisioning

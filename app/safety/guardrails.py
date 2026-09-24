@@ -320,18 +320,33 @@ def spotlight_retrieved_chunk(chunk_text: str, citation_anchor: str, semantic_to
     )
 
 
+import hashlib
+from app.ledger.firestore_client import (
+    COLLECTION_FAQ_CACHE,
+    DEFAULT_FIRESTORE_STORE,
+    FirestoreStore,
+)
+
+
 class CheapPathFAQCache:
     """Pre-computed, human-approved FAQ cache invalidated by corpus_version (SDD §3.2).
 
-    Cache entries are keyed by normalized intent and invalidated whenever `corpus_version`
+    Cache entries are keyed by normalized intent (`faq-<sha256[:12]>`) in memory and
+    Cloud Firestore (`faq_cache` collection), and invalidated whenever `corpus_version`
     changes, never by TTL alone, ensuring policy updates never serve stale guidance.
     """
 
-    def __init__(self, corpus_version: str = CORPUS_VERSION) -> None:
+    def __init__(
+        self,
+        corpus_version: str = CORPUS_VERSION,
+        firestore_store: Optional[FirestoreStore] = None,
+    ) -> None:
         self.corpus_version = corpus_version
+        self.firestore: FirestoreStore = firestore_store or DEFAULT_FIRESTORE_STORE
         self._entries: Dict[str, Dict[str, Any]] = {
             "how many sick days do i get": {
-                "corpus_version": CORPUS_VERSION,
+                "normalized_query": "how many sick days do i get",
+                "corpus_version": corpus_version,
                 "answer": (
                     "Eligible Altostrat Singapore employees and interns receive up to **14 days of paid "
                     "outpatient sick leave** per calendar year and up to **46 work days of paid "
@@ -348,7 +363,7 @@ class CheapPathFAQCache:
                         "citation_anchor": "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary",
                         "anchor": "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary",
                         "deep_link_url": (
-                            f"https://policies.altostrat.sg/handbook/{CORPUS_VERSION}/"
+                            f"https://policies.altostrat.sg/handbook/{corpus_version}/"
                             "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary"
                         ),
                         "authority": "primary",
@@ -358,7 +373,8 @@ class CheapPathFAQCache:
                 ],
             },
             "how many days of outpatient sick leave": {
-                "corpus_version": CORPUS_VERSION,
+                "normalized_query": "how many days of outpatient sick leave",
+                "corpus_version": corpus_version,
                 "answer": (
                     "Eligible Altostrat Singapore employees receive up to **14 days of paid outpatient "
                     "sick leave** per calendar year (and up to **46 work days of paid hospitalization leave**)."
@@ -372,7 +388,7 @@ class CheapPathFAQCache:
                         "citation_anchor": "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary",
                         "anchor": "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary",
                         "deep_link_url": (
-                            f"https://policies.altostrat.sg/handbook/{CORPUS_VERSION}/"
+                            f"https://policies.altostrat.sg/handbook/{corpus_version}/"
                             "sec-19-1-outpatient-and-hospitalization-leave-allowances#primary"
                         ),
                         "authority": "primary",
@@ -383,9 +399,72 @@ class CheapPathFAQCache:
             },
         }
 
-    def lookup(self, query: str, active_corpus_version: str = CORPUS_VERSION) -> Optional[Dict[str, Any]]:
-        normalized = re.sub(r"[^\w\s]", "", query.lower()).strip()
+    @staticmethod
+    def normalize_query(query: str) -> str:
+        return re.sub(r"[^\w\s]", "", query.lower()).strip()
+
+    @classmethod
+    def document_id_for_query(cls, query: str) -> str:
+        norm = cls.normalize_query(query)
+        digest = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:12]
+        return f"faq-{digest}"
+
+    def upsert_faq(
+        self,
+        query: str,
+        answer: str,
+        citations: List[Dict[str, Any]],
+        *,
+        corpus_version: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        norm = self.normalize_query(query)
+        doc_id = self.document_id_for_query(norm)
+        entry = {
+            "faq_id": doc_id,
+            "normalized_query": norm,
+            "corpus_version": corpus_version or self.corpus_version,
+            "answer": answer,
+            "citations": list(citations),
+        }
+        self._entries[norm] = entry
+        self.firestore.upsert_document(COLLECTION_FAQ_CACHE, doc_id, entry)
+        return entry
+
+    def sync_defaults_to_firestore(self) -> int:
+        """Persists all pre-computed default FAQ entries to Cloud Firestore `faq_cache`."""
+        count = 0
+        for norm, entry in list(self._entries.items()):
+            doc_id = self.document_id_for_query(norm)
+            payload = dict(entry)
+            payload["faq_id"] = doc_id
+            payload["normalized_query"] = norm
+            self.firestore.upsert_document(COLLECTION_FAQ_CACHE, doc_id, payload)
+            count += 1
+        return count
+
+    def lookup(
+        self,
+        query: str,
+        active_corpus_version: str = CORPUS_VERSION,
+        *,
+        prefer_remote: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        normalized = self.normalize_query(query)
+        if not prefer_remote:
+            entry = self._entries.get(normalized)
+            if entry and entry.get("corpus_version") == active_corpus_version:
+                return entry
+
+        doc_id = self.document_id_for_query(normalized)
+        remote_doc = self.firestore.get_document(
+            COLLECTION_FAQ_CACHE, doc_id, prefer_remote=prefer_remote
+        )
+        if remote_doc and remote_doc.get("corpus_version") == active_corpus_version:
+            self._entries[normalized] = remote_doc
+            return remote_doc
+
         entry = self._entries.get(normalized)
         if entry and entry.get("corpus_version") == active_corpus_version:
             return entry
         return None
+
