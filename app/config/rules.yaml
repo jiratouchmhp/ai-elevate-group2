@@ -1,0 +1,98 @@
+# Altostrat Singapore HR Agentic Assistant — Deterministic Business Rules Configuration
+# SDD §3.8 Policy-as-Data & §5.3 Deterministic Guardrails
+rules_version: "1.2.0"
+effective_date: "2026-09-23"
+jurisdiction: "SG"
+
+rules:
+  LEAVE_BALANCE_CAP:
+    id: "LEAVE_BALANCE_CAP"
+    source_section: "§1.2, §20"
+    description: "Requested leave days must not exceed the employee's remaining accrued balance."
+    enforcement: "DENY"
+    valid_increments: [0.5, 1.0]
+
+  LEAVE_CHRONOLOGY:
+    id: "LEAVE_CHRONOLOGY"
+    source_section: "§1.2"
+    description: "Leave start_date must be <= end_date, formatted as YYYY-MM-DD, and not in the past."
+    enforcement: "DENY"
+    allow_past_dates: false
+    date_format: "%Y-%m-%d"
+
+  LEAVE_NOTICE_15D:
+    id: "LEAVE_NOTICE_15D"
+    source_section: "§1.2"
+    description: "Vacation requests with fewer than 15 calendar days' advance notice trigger a soft warning requiring acknowledgement (SDD §5.3 / OQ-2)."
+    enforcement: "WARN"
+    min_notice_days: 15
+    applies_to_leave_types: ["Vacation"]
+
+  TICKET_LIFECYCLE:
+    id: "TICKET_LIFECYCLE"
+    source_section: "§5.5"
+    description: "All service tickets must progress sequentially: New -> In Progress -> Resolved -> Closed. Bypassing intermediate states is strictly prohibited even though the backend permits New -> Closed."
+    enforcement: "DENY"
+    allowed_transitions:
+      New: ["In Progress"]
+      In Progress: ["Resolved"]
+      Resolved: ["Closed"]
+      Closed: []
+    require_user_asserted_resolution: true  # Boundary B-8
+
+  TICKET_PRIORITY_FLOOR:
+    id: "TICKET_PRIORITY_FLOOR"
+    source_section: "§5.5"
+    description: "Ticket priority must reflect true business impact. Non-qualifying Critical/High claims (e.g. squeaky chair, cosmetic wear, standard equipment) are programmatically downgraded to 4 - Low."
+    enforcement: "DOWNGRADE"
+    low_priority_keywords:
+      - "squeaky"
+      - "chair"
+      - "cosmetic"
+      - "scratch"
+      - "monitor"
+      - "headphone"
+      - "keyboard"
+      - "mouse"
+      - "desk lamp"
+    critical_qualifying_keywords:
+      - "production outage"
+      - "security breach"
+      - "data leak"
+      - "system down"
+      - "completely unable to work"
+      - "emergency"
+    downgrade_target: "4 - Low"
+
+  TICKET_DEDUPE:
+    id: "TICKET_DEDUPE"
+    source_section: "FR-4.3"
+    description: "Prevent duplicate tickets submitted within a 5-minute (300s) window for the same employee and category."
+    enforcement: "DENY_WITH_EXISTING"
+    window_seconds: 300
+
+  EQUIP_ELIGIBILITY:
+    id: "EQUIP_ELIGIBILITY"
+    source_section: "§5.4"
+    description: "Home office equipment allowance capped at $500 USD; requires Remote or Hybrid status, Facilities category ticket, and verified shipping address."
+    enforcement: "DENY"
+    eligible_location_statuses: ["Remote", "Hybrid"]
+    max_allowance_usd: 500.0
+    required_ticket_category: "Facilities"
+
+  RELOCATION_CAP:
+    id: "RELOCATION_CAP"
+    source_section: "§5.5"
+    description: "International relocation allowance capped at $10,000 USD; building badge pre-configuration requires a Facilities ticket at Priority '3 - Moderate'."
+    enforcement: "DENY"
+    max_allowance_usd: 10000.0
+    required_ticket_category: "Facilities"
+    required_ticket_priority: "3 - Moderate"
+
+  CONTACT_FORMAT:
+    id: "CONTACT_FORMAT"
+    source_section: "FR-3.3"
+    description: "Personal home address must be >= 5 characters and phone must match E.164/local syntax."
+    enforcement: "DENY"
+    min_address_length: 5
+    phone_regex: '^\\+?[\\d\\s\\-()]{7,20}$'
