@@ -71,17 +71,165 @@ class RetrievalResponse:
     spotlighted_context: str = ""
     clean_context: str = ""
     corpus_version: str = "2026-07-altostrat-sg-v1"
+    rag_backend: str = "vertex_ai_rag_engine"
+    rag_corpus: str = (
+        "projects/ai-training-van-01/locations/asia-southeast1/ragCorpora/4611686018427387904"
+    )
+    cloud_hits_count: int = 0
+
+
+def _resolve_gcloud_access_token() -> Optional[str]:
+    """Resolves an OAuth2 bearer token for live Vertex AI RAG Engine calls."""
+    import os
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    env_token = os.environ.get("VERTEX_RAG_ACCESS_TOKEN")
+    if env_token:
+        return env_token.strip()
+
+    gcloud_bin = shutil.which("gcloud")
+    if not gcloud_bin:
+        fallback = Path.home() / "google-cloud-sdk" / "bin" / "gcloud"
+        if fallback.exists():
+            gcloud_bin = str(fallback)
+    if not gcloud_bin:
+        return None
+
+    try:
+        out = subprocess.check_output(
+            [gcloud_bin, "auth", "print-access-token"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        ).strip()
+        return out or None
+    except Exception:
+        return None
 
 
 class PolicyRetriever:
-    """Grounded policy retriever with canonical authority ranking and strict refusal."""
+    """Grounded policy retriever backed by Vertex AI RAG Engine (asia-southeast1) + C-1..C-6 metadata."""
 
-    def __init__(self, ingestion_result: Optional[IngestionResult] = None) -> None:
+    def __init__(
+        self,
+        ingestion_result: Optional[IngestionResult] = None,
+        *,
+        project_id: Optional[str] = None,
+        region: Optional[str] = None,
+        rag_corpus_id: Optional[str] = None,
+        use_cloud_rag: Optional[bool] = None,
+    ) -> None:
+        import os
+
         pipeline = PolicyIngestionPipeline()
         self.ingestion = ingestion_result or pipeline.run()
         self.chunks: List[PolicyChunk] = self.ingestion.chunks
+        self.chunks_by_anchor: Dict[str, PolicyChunk] = {
+            c.citation_anchor: c for c in self.chunks
+        }
         self.corpus_version: str = self.ingestion.corpus_version
         self.retriever_available: bool = True
+
+        self.project_id: str = project_id or os.environ.get(
+            "GOOGLE_CLOUD_PROJECT", "ai-training-van-01"
+        )
+        self.region: str = region or os.environ.get(
+            "GOOGLE_CLOUD_LOCATION", "asia-southeast1"
+        )
+        self.rag_corpus_id: str = rag_corpus_id or os.environ.get(
+            "VERTEX_RAG_CORPUS_ID", "4611686018427387904"
+        )
+        self.rag_corpus_resource: str = (
+            f"projects/{self.project_id}/locations/{self.region}/ragCorpora/{self.rag_corpus_id}"
+        )
+        if use_cloud_rag is None:
+            self.use_cloud_rag: bool = (
+                os.environ.get("USE_CLOUD_RAG", "true").strip().lower() == "true"
+            )
+        else:
+            self.use_cloud_rag = use_cloud_rag
+        self._cached_token: Optional[str] = None
+
+    def _get_token(self) -> Optional[str]:
+        if not self._cached_token:
+            self._cached_token = _resolve_gcloud_access_token()
+        return self._cached_token
+
+    def _query_vertex_rag_engine(
+        self, query: str, top_k: int = 5
+    ) -> tuple[bool, int, Dict[str, float]]:
+        """Calls Vertex AI RAG Engine :retrieveContexts in asia-southeast1 and maps vector hits to chunks."""
+        import json
+        import urllib.request
+
+        if not self.use_cloud_rag:
+            return False, 0, {}
+
+        token = self._get_token()
+        if not token:
+            return False, 0, {}
+
+        retrieve_url = (
+            f"https://{self.region}-aiplatform.googleapis.com/v1beta1/"
+            f"projects/{self.project_id}/locations/{self.region}:retrieveContexts"
+        )
+        payload = json.dumps(
+            {
+                "vertexRagStore": {
+                    "ragResources": [{"ragCorpus": self.rag_corpus_resource}]
+                },
+                "query": {"text": query, "similarityTopK": max(top_k, 5)},
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            retrieve_url,
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "X-Goog-User-Project": self.project_id,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            return False, 0, {}
+
+        contexts = data.get("contexts", {}).get("contexts", [])
+        anchor_boosts: Dict[str, float] = {}
+        anchor_pattern = re.compile(r"\[(sec-[a-z0-9\-#]+)\]")
+
+        for idx, ctx in enumerate(contexts):
+            ctx_text = ctx.get("text", "")
+            distance = float(ctx.get("distance", 0.45))
+            # Convert cosine distance (smaller is closer) into a positive similarity boost
+            sim_boost = max(0.15, round((1.0 - min(distance, 0.85)) * 0.65, 4))
+            rank_bonus = max(0.05, 0.25 - (idx * 0.04))
+
+            matched_anchors = anchor_pattern.findall(ctx_text)
+            if matched_anchors:
+                for anc in matched_anchors:
+                    anchor_boosts[anc] = max(
+                        anchor_boosts.get(anc, 0.0), round(sim_boost + rank_bonus, 4)
+                    )
+            else:
+                # Match passage snippet back to its canonical C-1..C-6 PolicyChunk
+                snippet_probe = re.sub(r"\s+", " ", ctx_text.strip())[:90].lower()
+                if len(snippet_probe) >= 25:
+                    for chk in self.chunks:
+                        norm_chk = re.sub(r"\s+", " ", chk.normalized_text).lower()
+                        if snippet_probe in norm_chk:
+                            anchor_boosts[chk.citation_anchor] = max(
+                                anchor_boosts.get(chk.citation_anchor, 0.0),
+                                round(sim_boost + rank_bonus, 4),
+                            )
+
+        return True, len(contexts), anchor_boosts
 
     def expand_query(self, query: str) -> List[str]:
         tokens = [
@@ -105,7 +253,7 @@ class PolicyRetriever:
         top_k: int = 4,
         min_score_threshold: float = 0.25,
     ) -> RetrievalResponse:
-        """Retrieves policy passages with C-1..C-6 mitigations and FR-5.4 strict grounding check."""
+        """Retrieves policy passages from Vertex AI RAG Engine with C-1..C-6 mitigations and FR-5.4 refusal."""
         if not self.retriever_available:
             return RetrievalResponse(
                 query=query,
@@ -118,6 +266,9 @@ class PolicyRetriever:
                     "hr-ops-sg@altostrat.sg or via the HR Service Desk portal."
                 ),
                 corpus_version=self.corpus_version,
+                rag_backend="unavailable",
+                rag_corpus=self.rag_corpus_resource,
+                cloud_hits_count=0,
             )
 
         # Explicit check for unanswerable topics outside handbook coverage (§9.2 / FR-5.4)
@@ -135,6 +286,9 @@ class PolicyRetriever:
                         "HRSD inquiry for clarification."
                     ),
                     corpus_version=self.corpus_version,
+                    rag_backend="vertex_ai_rag_engine" if self.use_cloud_rag else "local_curated_index",
+                    rag_corpus=self.rag_corpus_resource,
+                    cloud_hits_count=0,
                 )
 
         expanded_terms = self.expand_query(query)
@@ -150,7 +304,16 @@ class PolicyRetriever:
                     "contact HR Operations at hr-ops-sg@altostrat.sg."
                 ),
                 corpus_version=self.corpus_version,
+                rag_backend="vertex_ai_rag_engine" if self.use_cloud_rag else "local_curated_index",
+                rag_corpus=self.rag_corpus_resource,
+                cloud_hits_count=0,
             )
+
+        # 1. Query Live Vertex AI RAG Engine Corpus (asia-southeast1)
+        cloud_ok, cloud_hits_count, cloud_anchor_boosts = self._query_vertex_rag_engine(
+            query, top_k=max(top_k, 5)
+        )
+        active_backend = "vertex_ai_rag_engine" if cloud_ok else "local_curated_index"
 
         original_tokens = {
             t
@@ -175,13 +338,14 @@ class PolicyRetriever:
                 elif term in haystack:
                     matches += 2.0 if is_orig else 0.5
 
-            if matches <= 0:
+            cloud_boost = cloud_anchor_boosts.get(chunk.citation_anchor, 0.0)
+            if matches <= 0 and cloud_boost <= 0:
                 continue
 
             raw_score = matches / max(len(original_tokens) * 2.5, 2.5)
             # C-2 Canonical-source ranking: boost primary authority sections (§19, §20) over summaries (§1.1, §1.2)
             authority_boost = 0.25 if chunk.authority == "primary" else 0.0
-            final_score = round(raw_score + authority_boost, 4)
+            final_score = round(raw_score + authority_boost + cloud_boost, 4)
             scored.append((final_score, chunk))
 
         scored.sort(key=lambda item: item[0], reverse=True)
@@ -199,6 +363,9 @@ class PolicyRetriever:
                     "I'd suggest contacting HR Operations at hr-ops-sg@altostrat.sg."
                 ),
                 corpus_version=self.corpus_version,
+                rag_backend=active_backend,
+                rag_corpus=self.rag_corpus_resource,
+                cloud_hits_count=cloud_hits_count,
             )
 
         result_chunks: List[Dict[str, Any]] = []
@@ -207,6 +374,8 @@ class PolicyRetriever:
         for score, chk in top_matches:
             c_dict = chk.to_dict()
             c_dict["relevance_score"] = score
+            c_dict["rag_backend"] = active_backend
+            c_dict["rag_corpus"] = self.rag_corpus_resource
             result_chunks.append(c_dict)
             clean_blocks.append(chk.text)
             spotlight_blocks.append(
@@ -228,6 +397,9 @@ class PolicyRetriever:
             spotlighted_context="\n\n".join(spotlight_blocks),
             clean_context="\n\n".join(clean_blocks),
             corpus_version=self.corpus_version,
+            rag_backend=active_backend,
+            rag_corpus=self.rag_corpus_resource,
+            cloud_hits_count=cloud_hits_count,
         )
 
 

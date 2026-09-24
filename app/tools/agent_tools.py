@@ -65,13 +65,21 @@ def search_policy(
         employee_id=emp_id,
         agent_id="spiffe://altostrat.sg/ns/agent-runtime/sa/policy-agent",
         tool_invoked="search_policy",
-        tool_args_redacted={"query": query, "jurisdiction": jurisdiction},
+        tool_args_redacted={
+            "query": query,
+            "jurisdiction": jurisdiction,
+            "rag_backend": res.rag_backend,
+            "rag_corpus": res.rag_corpus,
+        },
         pdp_decision="ALLOW",
         pdp_rule_id="STRICT_GROUNDING_CHECK",
         retrieved_doc_ids=doc_ids,
         relevance_scores=scores,
         outcome="REFUSED_UNANSWERABLE" if res.refusal else "SUCCESS",
-        notes=res.refusal_reason or "Grounded policy retrieval succeeded.",
+        notes=(
+            res.refusal_reason
+            or f"Grounded policy retrieval via {res.rag_backend} ({res.rag_corpus}, cloud_hits={res.cloud_hits_count})."
+        ),
     )
 
     citations = [
@@ -85,6 +93,8 @@ def search_policy(
             "authority": c["authority"],
             "jurisdiction": c["jurisdiction"],
             "relevance_score": c["relevance_score"],
+            "rag_backend": res.rag_backend,
+            "rag_corpus": res.rag_corpus,
         }
         for c in res.chunks
     ]
@@ -99,6 +109,9 @@ def search_policy(
         "spotlighted_context": res.spotlighted_context,
         "clean_context": res.clean_context,
         "corpus_version": res.corpus_version,
+        "rag_backend": res.rag_backend,
+        "rag_corpus": res.rag_corpus,
+        "cloud_hits_count": res.cloud_hits_count,
     }
 
 
