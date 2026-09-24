@@ -1,10 +1,10 @@
 """Altostrat Singapore — HR Agentic Assistant (MVP 1) on Google ADK 2+ (SDD §1.3, §1.4, §3.1–§3.9).
 
 Defines:
-- `policy_agent` (Pro-tier `gemini-2.5-pro`, read-only `search_policy` tool)
-- `workweek_agent` (Flash-tier `gemini-2.5-flash`, 7 HCM tools)
-- `service_immediately_agent` (Flash-tier `gemini-2.5-flash`, 5 ITSM tools)
-- `root_agent` (Pro-tier `gemini-2.5-pro`, zero backend tools — delegation only)
+- `policy_agent` (Pro-tier `GEMINI_PRO_MODEL`, read-only `search_policy` tool)
+- `workweek_agent` (Flash-tier `GEMINI_FLASH_MODEL`, 7 HCM tools)
+- `service_immediately_agent` (Flash-tier `GEMINI_FLASH_MODEL`, 5 ITSM tools)
+- `root_agent` (Pro-tier `GEMINI_PRO_MODEL`, zero backend tools — delegation only)
 - `app` (ADK `App` binding `root_agent`)
 - `HRMultiAgentRuntime` (Executes the full ADK callback & delegation pipeline for UC-1.x and UC-2.x)
 """
@@ -30,6 +30,7 @@ from app.callbacks.adk_callbacks import (
     before_model_guardrail_callback,
     before_tool_guardrail_callback,
 )
+from app.config.env_config import get_flash_model_id, get_pro_model_id
 from app.governance.audit_logger import AuditLogger, DEFAULT_AUDIT_LOGGER
 from app.ledger.transaction_ledger import DEFAULT_LEDGER, SagaState, TransactionLedger
 from app.rag.retriever import DEFAULT_RETRIEVER, PolicyRetriever
@@ -58,9 +59,9 @@ from app.tools.agent_tools import (
 )
 
 
-# SDD D6 Model Tiering Constants
-PRO_MODEL_ID = "gemini-2.5-pro"
-FLASH_MODEL_ID = "gemini-2.5-flash"
+# SDD D6 Model Tiering Constants (resolved from GEMINI_PRO_MODEL / GEMINI_FLASH_MODEL / GEMINI_MODEL)
+PRO_MODEL_ID = get_pro_model_id()
+FLASH_MODEL_ID = get_flash_model_id()
 
 
 # =============================================================================

@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from app.config.env_config import get_pro_model_id
+
 try:
     from google.adk.agents import Agent, LlmAgent  # type: ignore
     from google.adk.apps import App  # type: ignore
@@ -27,7 +29,7 @@ except Exception:
 @dataclass
 class LlmRequest:
     prompt: str = ""
-    model: str = "gemini-2.5-pro"
+    model: str = field(default_factory=get_pro_model_id)
     contents: List[Any] = field(default_factory=list)
     config: Dict[str, Any] = field(default_factory=dict)
 

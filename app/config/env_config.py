@@ -16,6 +16,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_PATH = REPO_ROOT / ".env"
 
 DEFAULT_MCP_BASE_URL = "https://mock-saas.aishprabhat.demo.altostrat.com"
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_VERTEX_RAG_LOCATION = "asia-southeast1"
 
 
 def load_dotenv_file(env_path: Optional[Path] = None, *, override: bool = False) -> Dict[str, str]:
@@ -49,6 +51,32 @@ def load_dotenv_file(env_path: Optional[Path] = None, *, override: bool = False)
 
 # Load `.env` on module import so all tests and CLI entrypoints have access to env vars
 load_dotenv_file()
+
+
+def get_default_model_id() -> str:
+    """Returns the default Gemini model ID from `GEMINI_MODEL` (default: gemini-3.8-flash)."""
+    return os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip() or DEFAULT_GEMINI_MODEL
+
+
+def get_pro_model_id() -> str:
+    """Returns the Pro-tier model ID from `GEMINI_PRO_MODEL` or `GEMINI_MODEL`."""
+    return os.environ.get("GEMINI_PRO_MODEL", "").strip() or get_default_model_id()
+
+
+def get_flash_model_id() -> str:
+    """Returns the Flash-tier model ID from `GEMINI_FLASH_MODEL` or `GEMINI_MODEL`."""
+    return os.environ.get("GEMINI_FLASH_MODEL", "").strip() or get_default_model_id()
+
+
+def get_vertex_rag_location() -> str:
+    """Returns the regional location for the Vertex AI RAG Engine Corpus (default: asia-southeast1)."""
+    explicit = os.environ.get("VERTEX_RAG_LOCATION", "").strip()
+    if explicit:
+        return explicit
+    loc = os.environ.get("GOOGLE_CLOUD_LOCATION", DEFAULT_VERTEX_RAG_LOCATION).strip()
+    if not loc or loc.lower() == "global":
+        return DEFAULT_VERTEX_RAG_LOCATION
+    return loc
 
 
 def get_mcp_base_url() -> str:

@@ -10,6 +10,11 @@ export
 
 PROJECT_ID       ?= ai-training-van-01
 REGION           ?= asia-southeast1
+GOOGLE_CLOUD_LOCATION ?= global
+VERTEX_RAG_LOCATION ?= $(REGION)
+GEMINI_MODEL     ?= gemini-3.8-flash
+GEMINI_PRO_MODEL ?= $(GEMINI_MODEL)
+GEMINI_FLASH_MODEL ?= $(GEMINI_MODEL)
 AR_REPO          ?= hr-agent
 IMAGE_TAG        ?= 1.0.0
 PORT             ?= 8080
@@ -47,9 +52,10 @@ help: ## Show available targets and current GCP configuration
 	@echo "=============================================================================="
 	@echo " Altostrat Singapore — HR Agentic Assistant (MVP 1)"
 	@echo " Target GCP Project    : $(PROJECT_ID) (Vertex AI: $(GOOGLE_GENAI_USE_VERTEXAI))"
-	@echo " Target Region         : $(REGION)"
+	@echo " Vertex AI Model Loc   : $(GOOGLE_CLOUD_LOCATION) (Pro: $(GEMINI_PRO_MODEL) / Flash: $(GEMINI_FLASH_MODEL))"
+	@echo " Target RAG Region     : $(VERTEX_RAG_LOCATION)"
 	@echo " RAG Corpus Bucket     : $(RAG_BUCKET_URI)"
-	@echo " Vertex AI RAG Corpus  : $(VERTEX_RAG_CORPUS_ID) ($(REGION))"
+	@echo " Vertex AI RAG Corpus  : $(VERTEX_RAG_CORPUS_ID) ($(VERTEX_RAG_LOCATION))"
 	@echo " MCP Server Base URL   : $(MCP_SERVER_BASE_URL)"
 	@echo " MCP Auth Employee ID  : $(MCP_AUTHENTICATED_EMPLOYEE_ID)"
 	@echo " Active Python / ADK   : $(PYTHON)"
@@ -96,9 +102,13 @@ install: ## Install Python dependencies into virtual environment (supports uv an
 
 start: ## Start the Customer Chat UI (FastAPI + AG-UI BFF) locally on PORT (default: 8080)
 	@echo ">>> Starting Customer Chat UI (AG-UI BFF) on http://vannick2.c.googlers.com:$(PORT)"
-	@echo ">>> Connected to GCP RAG Corpus $(VERTEX_RAG_CORPUS_ID) ($(REGION)) + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
+	@echo ">>> Connected to GCP RAG Corpus $(VERTEX_RAG_CORPUS_ID) ($(VERTEX_RAG_LOCATION)) + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+	GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
@@ -112,9 +122,13 @@ run: start ## Alias for 'make start'
 
 start-adk: ## Launch the Google ADK Developer Web UI on ADK_PORT (default: 8000)
 	@echo ">>> Starting Google ADK Developer Web UI on http://vannick2.c.googlers.com:$(ADK_PORT)"
-	@echo ">>> Select agent 'app' (altostrat_hr_agent) — connected to Vertex AI + GCP RAG + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
+	@echo ">>> Select agent 'app' (altostrat_hr_agent) — Model: $(GEMINI_PRO_MODEL) ($(GOOGLE_CLOUD_LOCATION)) + GCP RAG ($(VERTEX_RAG_LOCATION)) + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+	GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
@@ -129,13 +143,18 @@ start-local: ## Start BOTH Customer Chat UI (:8080) and Google ADK Web UI (:8000
 	@echo " Launching Local Pre-Deployment Environment (Live MCP + GCP Vertex AI RAG)"
 	@echo "   1. Customer Chat UI (AG-UI BFF) : http://vannick2.c.googlers.com:$(PORT)"
 	@echo "   2. Google ADK Developer Web UI  : http://vannick2.c.googlers.com:$(ADK_PORT)"
-	@echo "   3. GCP Vertex AI RAG Corpus     : $(VERTEX_RAG_CORPUS_ID) ($(PROJECT_ID) / $(REGION))"
-	@echo "   4. Live Vendor MCP Server       : $(MCP_SERVER_BASE_URL) (User: $(MCP_AUTHENTICATED_EMPLOYEE_ID))"
+	@echo "   3. Vertex AI Gemini Model       : $(GEMINI_PRO_MODEL) (Location: $(GOOGLE_CLOUD_LOCATION))"
+	@echo "   4. GCP Vertex AI RAG Corpus     : $(VERTEX_RAG_CORPUS_ID) ($(PROJECT_ID) / $(VERTEX_RAG_LOCATION))"
+	@echo "   5. Live Vendor MCP Server       : $(MCP_SERVER_BASE_URL) (User: $(MCP_AUTHENTICATED_EMPLOYEE_ID))"
 	@echo " Press Ctrl+C to stop both servers."
 	@echo "=============================================================================="
 	@bash -c 'trap "kill 0" INT TERM EXIT; \
 		GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-		GOOGLE_CLOUD_LOCATION=$(REGION) \
+		GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+		VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+		GEMINI_MODEL=$(GEMINI_MODEL) \
+		GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+		GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 		GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 		VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 		USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
@@ -143,7 +162,11 @@ start-local: ## Start BOTH Customer Chat UI (:8080) and Google ADK Web UI (:8000
 		MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
 		$(PYTHON) -m app.ui.ag_ui_server --host 0.0.0.0 --port $(PORT) & \
 		GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-		GOOGLE_CLOUD_LOCATION=$(REGION) \
+		GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+		VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+		GEMINI_MODEL=$(GEMINI_MODEL) \
+		GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+		GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 		GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 		VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 		USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
@@ -158,7 +181,11 @@ local-up: start-local ## Alias for 'make start-local'
 
 test-local: ## Test the local UI + ADK Agent + Live MCP Server (EMP-836) + GCP Vertex AI RAG as a user before deploying to GCP
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+	GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=true \
@@ -180,7 +207,11 @@ mcp-integration-test: ## Run live WorkWeek & ServiceImmediately MCP server integ
 
 mcp-e2e-test: ## Run End-to-End ADK Agent -> Live MCP Server + Vertex AI RAG Engine tests
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+	GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=true \
 	USE_LIVE_MCP=true \
@@ -207,7 +238,11 @@ test-retrieval: rag-test ## Alias for 'make rag-test'
 
 rag-agent-test: ## Run End-to-End ADK Agent -> Vertex AI RAG Engine integration tests
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
-	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	VERTEX_RAG_LOCATION=$(VERTEX_RAG_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GEMINI_PRO_MODEL=$(GEMINI_PRO_MODEL) \
+	GEMINI_FLASH_MODEL=$(GEMINI_FLASH_MODEL) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=true \
 	$(PYTHON) -m unittest tests/integration/test_agent_vertex_rag_e2e.py -v

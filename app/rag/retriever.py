@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import re
 from typing import Any, Dict, List, Optional
 
+from app.config.env_config import get_vertex_rag_location
 from app.rag.ingestion import IngestionResult, PolicyChunk, PolicyIngestionPipeline
 from app.safety.guardrails import spotlight_retrieved_chunk
 
@@ -136,9 +137,7 @@ class PolicyRetriever:
         self.project_id: str = project_id or os.environ.get(
             "GOOGLE_CLOUD_PROJECT", "ai-training-van-01"
         )
-        self.region: str = region or os.environ.get(
-            "GOOGLE_CLOUD_LOCATION", "asia-southeast1"
-        )
+        self.region: str = region or get_vertex_rag_location()
         self.rag_corpus_id: str = rag_corpus_id or os.environ.get(
             "VERTEX_RAG_CORPUS_ID", "4611686018427387904"
         )

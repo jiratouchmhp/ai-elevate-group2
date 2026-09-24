@@ -6,7 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
     GOOGLE_CLOUD_PROJECT=ai-training-van-01 \
-    GOOGLE_CLOUD_LOCATION=asia-southeast1
+    GOOGLE_CLOUD_LOCATION=global \
+    VERTEX_RAG_LOCATION=asia-southeast1 \
+    GEMINI_MODEL=gemini-3.8-flash \
+    GEMINI_PRO_MODEL=gemini-3.8-flash \
+    GEMINI_FLASH_MODEL=gemini-3.8-flash
 
 COPY pyproject.toml README.md ./
 COPY app ./app

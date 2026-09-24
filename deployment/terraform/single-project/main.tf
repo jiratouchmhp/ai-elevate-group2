@@ -153,7 +153,23 @@ resource "google_cloud_run_v2_service" "acl_pdp_service" {
       }
       env {
         name  = "GOOGLE_CLOUD_LOCATION"
+        value = "global"
+      }
+      env {
+        name  = "VERTEX_RAG_LOCATION"
         value = var.region
+      }
+      env {
+        name  = "GEMINI_MODEL"
+        value = "gemini-3.8-flash"
+      }
+      env {
+        name  = "GEMINI_PRO_MODEL"
+        value = "gemini-3.8-flash"
+      }
+      env {
+        name  = "GEMINI_FLASH_MODEL"
+        value = "gemini-3.8-flash"
       }
       env {
         name  = "RULES_VERSION"
@@ -191,7 +207,23 @@ resource "google_cloud_run_v2_service" "chat_ui_bff" {
       }
       env {
         name  = "GOOGLE_CLOUD_LOCATION"
+        value = "global"
+      }
+      env {
+        name  = "VERTEX_RAG_LOCATION"
         value = var.region
+      }
+      env {
+        name  = "GEMINI_MODEL"
+        value = "gemini-3.8-flash"
+      }
+      env {
+        name  = "GEMINI_PRO_MODEL"
+        value = "gemini-3.8-flash"
+      }
+      env {
+        name  = "GEMINI_FLASH_MODEL"
+        value = "gemini-3.8-flash"
       }
       env {
         name  = "VERTEX_RAG_CORPUS_ID"
