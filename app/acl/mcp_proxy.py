@@ -19,6 +19,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 import uuid
 
+from app.acl.mcp_client import MCPTransportError, StreamableHttpMcpClient
+from app.config.env_config import (
+    get_mcp_authenticated_employee_id,
+    get_mcp_token,
+    is_live_mcp_enabled,
+)
 from app.governance.audit_logger import (
     AGENT_VERSION,
     AuditLogger,
@@ -322,12 +328,39 @@ class AntiCorruptionLayerProxy:
         ledger: Optional[TransactionLedger] = None,
         audit_logger: Optional[AuditLogger] = None,
         backend_state: Optional[MockVendorBackendState] = None,
+        use_live_mcp: Optional[bool] = None,
+        force_live_mcp: bool = False,
+        mcp_client: Optional[StreamableHttpMcpClient] = None,
+        mcp_token: Optional[str] = None,
     ) -> None:
         self.pdp = pdp or DEFAULT_PDP
         self.ledger = ledger or DEFAULT_LEDGER
         self.audit = audit_logger or DEFAULT_AUDIT_LOGGER
         self.backend = backend_state or DEFAULT_BACKEND_STATE
         self.sdp = AdvancedSDPScanner()
+        self.mcp_token = mcp_token if mcp_token is not None else get_mcp_token()
+        self.mcp_authenticated_employee_id = get_mcp_authenticated_employee_id()
+        self.use_live_mcp = (
+            bool(use_live_mcp)
+            if use_live_mcp is not None
+            else is_live_mcp_enabled(default=True)
+        )
+        self.force_live_mcp = force_live_mcp
+        self.mcp_client: Optional[StreamableHttpMcpClient] = mcp_client or (
+            StreamableHttpMcpClient(mcp_token=self.mcp_token)
+            if (self.use_live_mcp or self.mcp_token)
+            else None
+        )
+
+    def _should_use_live_mcp(self, employee_id: str) -> bool:
+        """Determines whether operations for `employee_id` should execute against the live MCP server."""
+        if not self.use_live_mcp or self.mcp_client is None:
+            return False
+        if self.force_live_mcp:
+            return True
+        if employee_id == self.mcp_authenticated_employee_id:
+            return True
+        return employee_id not in self.backend.employees
 
     def build_attribution_headers(
         self, *, employee_id: str, agent_name: str, correlation_id: str
@@ -336,7 +369,10 @@ class AntiCorruptionLayerProxy:
         spiffe_id = AGENT_SPIFFE_IDS.get(
             agent_name, f"spiffe://altostrat.sg/ns/agent-runtime/sa/{agent_name}"
         )
-        pat_token = PERSONA_MCP_TOKENS.get(employee_id, "pat-default-sandbox")
+        if self._should_use_live_mcp(employee_id) and self.mcp_token:
+            pat_token = self.mcp_token
+        else:
+            pat_token = PERSONA_MCP_TOKENS.get(employee_id, self.mcp_token or "pat-default-sandbox")
         return {
             "X-MCP-Token": pat_token,
             "X-Actor-Type": "AUTOMATED_AGENT",
@@ -345,6 +381,15 @@ class AntiCorruptionLayerProxy:
             "X-Agent-Version": AGENT_VERSION,
             "X-Correlation-Id": correlation_id,
         }
+
+    @staticmethod
+    def _sanitize_headers_for_response(headers: Dict[str, str]) -> Dict[str, str]:
+        """Redacts raw `mcp_...` secrets from response metadata while preserving attribution headers."""
+        sanitized = dict(headers)
+        token_val = sanitized.get("X-MCP-Token", "")
+        if token_val.startswith("mcp_"):
+            sanitized["X-MCP-Token"] = "[REDACTED_MCP_TOKEN]"
+        return sanitized
 
     def invoke_tool(
         self,
@@ -552,6 +597,7 @@ class AntiCorruptionLayerProxy:
             agent_name=calling_agent,
             correlation_id=corr_id,
         )
+        safe_headers = self._sanitize_headers_for_response(headers)
 
         # 8. Execute call with NFR-4.2 retry / idempotency semantics
         if spec.mutating:
@@ -567,7 +613,7 @@ class AntiCorruptionLayerProxy:
                     "backend_ref": existing.backend_ref,
                     "idempotency_key": idem_key,
                     "warnings": decision.warnings,
-                    "attribution_headers": headers,
+                    "attribution_headers": safe_headers,
                 }
 
             self.ledger.record_intent(
@@ -576,9 +622,30 @@ class AntiCorruptionLayerProxy:
                 tool_name=tool_name,
                 payload=effective_args,
             )
-            result = self._execute_backend_operation(
-                tool_name, effective_args, authenticated_employee_id, headers
-            )
+            try:
+                result = self._execute_backend_operation(
+                    tool_name, effective_args, authenticated_employee_id, headers
+                )
+            except MCPTransportError as exc:
+                self.audit.record(
+                    session_id=session_id,
+                    employee_id=authenticated_employee_id,
+                    correlation_id=corr_id,
+                    agent_id=spiffe_id,
+                    tool_invoked=tool_name,
+                    tool_args_redacted=self.sdp.redact_dict(effective_args),
+                    pdp_decision=decision.status,
+                    pdp_rule_id=decision.rule_id,
+                    outcome="ERROR",
+                    notes=f"Live MCP write failed ({exc.http_status}): {exc}",
+                )
+                return {
+                    "status": "BACKEND_UNAVAILABLE",
+                    "http_status": exc.http_status,
+                    "system": spec.system,
+                    "user_message": f"{spec.system} is temporarily unavailable — please try again shortly.",
+                }
+
             backend_ref = str(
                 result.get("request_id") or result.get("ticket_id") or f"REF-{uuid.uuid4().hex[:6].upper()}"
             )
@@ -600,7 +667,7 @@ class AntiCorruptionLayerProxy:
             result["idempotency_key"] = idem_key
             result["backend_ref"] = backend_ref
             result["warnings"] = decision.warnings
-            result["attribution_headers"] = headers
+            result["attribution_headers"] = safe_headers
             return result
 
         # Read-only operation with exponential backoff retry (NFR-4.2)
@@ -618,9 +685,32 @@ class AntiCorruptionLayerProxy:
                     "user_message": f"{spec.system} is temporarily unavailable after {attempts} retries.",
                 }
 
-            result = self._execute_backend_operation(
-                tool_name, effective_args, authenticated_employee_id, headers
-            )
+            try:
+                result = self._execute_backend_operation(
+                    tool_name, effective_args, authenticated_employee_id, headers
+                )
+            except MCPTransportError as exc:
+                if attempts <= spec.max_retries:
+                    continue
+                self.audit.record(
+                    session_id=session_id,
+                    employee_id=authenticated_employee_id,
+                    correlation_id=corr_id,
+                    agent_id=spiffe_id,
+                    tool_invoked=tool_name,
+                    tool_args_redacted=redacted_args,
+                    pdp_decision="ALLOW",
+                    pdp_rule_id="READ_ONLY_PASS",
+                    outcome="ERROR",
+                    notes=f"Live MCP read failed after {attempts} attempts ({exc.http_status}): {exc}",
+                )
+                return {
+                    "status": "BACKEND_UNAVAILABLE",
+                    "http_status": exc.http_status,
+                    "system": spec.system,
+                    "user_message": f"{spec.system} is temporarily unavailable after {attempts} retries.",
+                }
+
             self.audit.record(
                 session_id=session_id,
                 employee_id=authenticated_employee_id,
@@ -635,13 +725,64 @@ class AntiCorruptionLayerProxy:
             )
             result["status"] = "SUCCESS"
             result["attempts"] = attempts
-            result["attribution_headers"] = headers
+            result["attribution_headers"] = safe_headers
             return result
 
     def _build_pdp_context(
         self, tool_name: str, args: Dict[str, Any], employee_id: str
     ) -> Dict[str, Any]:
         ctx: Dict[str, Any] = {}
+        spec = TOOL_CONTRACT_CATALOGUE.get(tool_name)
+
+        if self._should_use_live_mcp(employee_id) and self.mcp_client is not None:
+            # Only perform live pre-fetch round-trips for mutating operations evaluated by the PDP
+            if spec and spec.mutating:
+                headers = self.build_attribution_headers(
+                    employee_id=employee_id,
+                    agent_name="acl_pdp_context",
+                    correlation_id="ctx-prefetch",
+                )
+                try:
+                    profile = self.mcp_client.fetch_employee_profile(employee_id, headers=headers)
+                    bal_res = self.mcp_client.fetch_leave_balances(employee_id, headers=headers)
+                    ctx["location_status"] = profile.get("location_status", "Hybrid")
+                    ctx["address"] = profile.get("address", "")
+                    ctx["balances"] = bal_res.get("balances", {})
+                except MCPTransportError:
+                    ctx["location_status"] = "Hybrid"
+                    ctx["address"] = ""
+                    ctx["balances"] = {}
+
+                if tool_name in ("cancel_leave", "cancel_leave_request"):
+                    raw_req_id = str(args.get("request_id", "")).strip()
+                    if raw_req_id.upper().startswith("LR-"):
+                        raw_req_id = raw_req_id[3:]
+                    try:
+                        reqs = self.mcp_client.fetch_leave_requests(employee_id, headers=headers)
+                        for r in reqs.get("leave_requests", []):
+                            if str(r.get("request_id")) == raw_req_id:
+                                ctx["request_owner_id"] = r.get("employee_id", employee_id)
+                                break
+                    except MCPTransportError:
+                        pass
+
+                if tool_name in (
+                    "update_status",
+                    "update_ticket_status",
+                    "add_comment",
+                    "add_ticket_comment",
+                ):
+                    t_id = str(args.get("ticket_id", ""))
+                    try:
+                        t_res = self.mcp_client.fetch_ticket(t_id, employee_id, headers=headers)
+                        ticket = t_res.get("ticket")
+                        if ticket:
+                            ctx["current_status"] = ticket.get("status", "New")
+                            ctx["requestor_id"] = ticket.get("requestor_id", employee_id)
+                    except MCPTransportError:
+                        pass
+            return ctx
+
         emp = self.backend.employees.get(employee_id, {})
         ctx["location_status"] = emp.get("location_status", "Hybrid")
         ctx["address"] = emp.get("address", "")
@@ -669,6 +810,82 @@ class AntiCorruptionLayerProxy:
         employee_id: str,
         headers: Dict[str, str],
     ) -> Dict[str, Any]:
+        # Live MCP Server execution path (SDD §5.1, D9)
+        if self._should_use_live_mcp(employee_id) and self.mcp_client is not None:
+            if tool_name == "get_profile":
+                profile = self.mcp_client.fetch_employee_profile(employee_id, headers=headers)
+                return {"profile": profile, "mcp_backend": "live_mcp_server"}
+
+            if tool_name == "get_personal_info":
+                return self.mcp_client.fetch_personal_info(employee_id, headers=headers)
+
+            if tool_name == "get_leave_balance":
+                return self.mcp_client.fetch_leave_balances(employee_id, headers=headers)
+
+            if tool_name == "get_leave_requests":
+                return self.mcp_client.fetch_leave_requests(employee_id, headers=headers)
+
+            if tool_name == "update_contact":
+                return self.mcp_client.update_contact_info(
+                    employee_id,
+                    address=str(args.get("address", "")),
+                    phone=str(args.get("phone", "")),
+                    headers=headers,
+                )
+
+            if tool_name == "submit_leave":
+                return self.mcp_client.submit_leave_request(
+                    employee_id,
+                    start_date=str(args["start_date"]),
+                    end_date=str(args["end_date"]),
+                    leave_type=str(args.get("leave_type", "Vacation")),
+                    days=float(args.get("days", args.get("work_days", 1.0))),
+                    headers=headers,
+                )
+
+            if tool_name == "cancel_leave":
+                return self.mcp_client.cancel_leave_request(
+                    employee_id,
+                    request_id=args.get("request_id", ""),
+                    headers=headers,
+                )
+
+            if tool_name == "get_ticket":
+                return self.mcp_client.fetch_ticket(
+                    str(args.get("ticket_id", "")),
+                    employee_id,
+                    headers=headers,
+                )
+
+            if tool_name == "list_tickets":
+                return self.mcp_client.list_employee_tickets(employee_id, headers=headers)
+
+            if tool_name == "create_incident":
+                return self.mcp_client.create_incident_ticket(
+                    employee_id,
+                    category=str(args.get("category", "IT")),
+                    short_description=str(args.get("short_description", "")),
+                    priority=str(args.get("priority", "3 - Moderate")),
+                    headers=headers,
+                )
+
+            if tool_name == "add_comment":
+                return self.mcp_client.add_ticket_comment(
+                    employee_id,
+                    ticket_id=str(args.get("ticket_id", "")),
+                    comment=str(args.get("comment", "")),
+                    headers=headers,
+                )
+
+            if tool_name == "update_status":
+                return self.mcp_client.update_ticket_status(
+                    employee_id,
+                    ticket_id=str(args.get("ticket_id", "")),
+                    new_status=str(args.get("new_status", args.get("status", ""))),
+                    resolution_notes=str(args.get("resolution_notes", "")),
+                    headers=headers,
+                )
+
         if tool_name in ("get_profile", "get_personal_info"):
             profile = copy.deepcopy(self.backend.employees.get(employee_id, {}))
             return {"profile": profile}

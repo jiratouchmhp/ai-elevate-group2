@@ -51,6 +51,7 @@ class AdvancedSDPScanner:
     SG_NRIC_FIN_PATTERN = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
     CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
     US_SSN_PATTERN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+    MCP_TOKEN_PATTERN = re.compile(r"\bmcp_[A-Za-z0-9_\-]{16,}\b")
     SG_POSTAL_ADDRESS_PATTERN = re.compile(
         r"\b(?:\d{1,4}\s+[A-Za-z0-9\s]+(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Lane|Boulevard|Blvd|Quay)[,\s]+(?:Singapore\s*)?\d{6})\b",
         re.IGNORECASE,
@@ -76,10 +77,14 @@ class AdvancedSDPScanner:
             detected.append("CREDIT_CARD")
             redacted = self.CREDIT_CARD_PATTERN.sub("[REDACTED_CREDIT_CARD]", redacted)
 
+        if self.MCP_TOKEN_PATTERN.search(redacted):
+            detected.append("MCP_TOKEN")
+            redacted = self.MCP_TOKEN_PATTERN.sub("[REDACTED_MCP_TOKEN]", redacted)
+
         return redacted, detected
 
     def redact_dict(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Redacts SPII fields (address, phone, NRIC) from tool arguments before audit logging (§4.5)."""
+        """Redacts SPII fields (address, phone, NRIC, MCP token) from tool arguments before audit logging (§4.5)."""
         if not payload:
             return {}
         out: Dict[str, Any] = {}
@@ -91,6 +96,8 @@ class AdvancedSDPScanner:
                 out[k] = "[REDACTED_PHONE]"
             elif key_lower in ("nric", "fin", "ssn"):
                 out[k] = "[REDACTED_SG_NRIC]"
+            elif key_lower in ("x-mcp-token", "mcp_token", "pat_token", "token"):
+                out[k] = "[REDACTED_MCP_TOKEN]"
             elif isinstance(v, str):
                 redacted_val, _ = self.inspect_and_deidentify(v)
                 out[k] = redacted_val
@@ -133,6 +140,7 @@ class ModelArmorScanner:
 
     OUTPUT_LEAK_PATTERNS = [
         re.compile(r"\bX-MCP-Token\s*:\s*[A-Za-z0-9_\-]{10,}\b", re.I),
+        re.compile(r"\bmcp_[A-Za-z0-9_\-]{16,}\b"),
         re.compile(r"-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----", re.I),
     ]
 

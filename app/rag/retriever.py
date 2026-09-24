@@ -36,6 +36,7 @@ SYNONYM_EXPANSIONS: Dict[str, List[str]] = {
     "bereavement": ["4 weeks", "20 work days", "compassionate", "12 months"],
     "meal": ["120", "daily meal limit", "travel", "concur"],
     "carryover": ["december 31", "following year", "carry over", "forfeited"],
+    "carried": ["december 31", "carryover", "following year", "carry over", "forfeited"],
     "expire": ["december 31", "following year", "carry over", "forfeited"],
     "medical": ["sick", "hospitalization", "14 days", "46 work days", "hrsd", "email delegation"],
 }
@@ -250,7 +251,7 @@ class PolicyRetriever:
         query: str,
         *,
         jurisdiction: str = "SG",
-        top_k: int = 4,
+        top_k: int = 5,
         min_score_threshold: float = 0.25,
     ) -> RetrievalResponse:
         """Retrieves policy passages from Vertex AI RAG Engine with C-1..C-6 mitigations and FR-5.4 refusal."""
@@ -342,10 +343,16 @@ class PolicyRetriever:
             if matches <= 0 and cloud_boost <= 0:
                 continue
 
+            phrase_boost = 0.0
+            for tok in original_tokens:
+                for phrase in SYNONYM_EXPANSIONS.get(tok, []):
+                    if " " in phrase and phrase.lower() in haystack:
+                        phrase_boost += 0.35
+
             raw_score = matches / max(len(original_tokens) * 2.5, 2.5)
             # C-2 Canonical-source ranking: boost primary authority sections (§19, §20) over summaries (§1.1, §1.2)
             authority_boost = 0.25 if chunk.authority == "primary" else 0.0
-            final_score = round(raw_score + authority_boost + cloud_boost, 4)
+            final_score = round(raw_score + authority_boost + cloud_boost + min(phrase_boost, 0.7), 4)
             scored.append((final_score, chunk))
 
         scored.sort(key=lambda item: item[0], reverse=True)

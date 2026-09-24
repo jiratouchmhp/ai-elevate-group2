@@ -321,11 +321,13 @@ class HRMultiAgentRuntime:
             )
 
         prompt_lower = user_prompt.lower()
-        stripped_prompt = prompt_lower.strip()
+        stripped_prompt = prompt_lower.strip().rstrip(".!")
         is_affirmative_reply = stripped_prompt in (
             "yes",
             "confirm",
             "yes, confirm",
+            "yes, please proceed",
+            "yes please proceed",
             "proceed",
             "approve",
             "ok",
@@ -366,7 +368,7 @@ class HRMultiAgentRuntime:
                     delegated_agents=delegated_agents,
                     tool_trajectory=tool_trajectory,
                 )
-            if is_affirmative_reply:
+            if is_affirmative_reply or confirmed:
                 state["pending_confirmation"] = None
                 orig_prompt = pending_conf.get("original_prompt", "")
                 orig_asserted = bool(pending_conf.get("user_asserted_resolution", user_asserted_resolution))
@@ -375,15 +377,15 @@ class HRMultiAgentRuntime:
                     prompt_lower = user_prompt.lower()
                     confirmed = True
                     user_asserted_resolution = orig_asserted
-            elif confirmed:
-                state["pending_confirmation"] = None
 
         is_confirmation_turn = confirmed or is_affirmative_reply
 
         # ---------------------------------------------------------------------
         # Handle Compensating Undo or Single-Domain Leave Cancellation ("cancel the leave")
         # ---------------------------------------------------------------------
-        req_id_match = re.search(r"\b(LR-\d+)\b", user_prompt, re.I)
+        req_id_match = re.search(r"\b(LR-\d+)\b", user_prompt, re.I) or re.search(
+            r"\b(?:request|leave)\s*(?:id\s*)?#?(\d+)\b", user_prompt, re.I
+        )
         if (
             "cancel the leave" in prompt_lower
             or "undo" in prompt_lower
@@ -440,14 +442,21 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # Cross-User Isolation Check in Prompt (FR-1.5 / T-3)
         # ---------------------------------------------------------------------
-        if re.search(
+        explicit_emp_match = re.search(r"\b(EMP-(?:SG-)?\d+)\b", user_prompt, re.I)
+        target_other_emp: Optional[str] = None
+        if explicit_emp_match and explicit_emp_match.group(1).upper() != authenticated_employee_id.upper():
+            target_other_emp = explicit_emp_match.group(1).upper()
+        elif re.search(
             r"\b(?:my\s+manager'?s|another\s+employee'?s|colleague'?s|david\s+lim'?s|arjun'?s)\s+(?:leave|balance|profile|salary|record|address)",
             prompt_lower,
         ):
+            target_other_emp = "EMP-SG-099"
+
+        if target_other_emp is not None:
             cross_res = self._call_subagent_tool(
                 agent=workweek_agent,
                 tool_fn=get_leave_balance,
-                args={"employee_id": "EMP-SG-099"},
+                args={"employee_id": target_other_emp},
                 state=state,
                 events=events,
                 delegated_agents=delegated_agents,

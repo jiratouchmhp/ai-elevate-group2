@@ -5,3 +5,7 @@ build/
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
+.env
+.env.*
+!.env.example
+

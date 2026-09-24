@@ -5,6 +5,9 @@
 
 export PATH      := /usr/local/google/home/vannick/google-cloud-sdk/bin:$(PATH)
 
+-include .env
+export
+
 PROJECT_ID       ?= ai-training-van-01
 REGION           ?= asia-southeast1
 AR_REPO          ?= hr-agent
@@ -20,11 +23,17 @@ RAG_BUCKET_URI   := gs://$(PROJECT_ID)-hr-policy-corpus
 RAG_DATASTORE_ID ?= altostrat-sg-policy-handbook-ds
 VERTEX_RAG_CORPUS_ID ?= 4611686018427387904
 USE_CLOUD_RAG    ?= true
+MCP_SERVER_BASE_URL ?= https://mock-saas.aishprabhat.demo.altostrat.com
+WORKWEEK_MCP_URL ?= $(MCP_SERVER_BASE_URL)/work-week/mcp/
+SERVICE_IMMEDIATELY_MCP_URL ?= $(MCP_SERVER_BASE_URL)/service-immediately/mcp/
+MCP_AUTHENTICATED_EMPLOYEE_ID ?= EMP-836
+USE_LIVE_MCP     ?= true
 AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 
 .DEFAULT_GOAL := help
 
 .PHONY: help install start run start-adk test \
+        mcp-test mcp-unit-test mcp-integration-test mcp-e2e-test \
         rag-ingest rag-test test-retrieval rag-agent-test rag-provision \
         gcp-auth-check gcp-enable-apis gcp-setup-ar \
         cloud-build docker-build \
@@ -38,13 +47,16 @@ help: ## Show available targets and current GCP configuration
 	@echo " Target Region         : $(REGION)"
 	@echo " RAG Corpus Bucket     : $(RAG_BUCKET_URI)"
 	@echo " Vertex AI RAG Corpus  : $(VERTEX_RAG_CORPUS_ID) ($(REGION))"
+	@echo " MCP Server Base URL   : $(MCP_SERVER_BASE_URL)"
+	@echo " MCP Auth Employee ID  : $(MCP_AUTHENTICATED_EMPLOYEE_ID)"
 	@echo "=============================================================================="
 	@echo ""
 	@echo "Application Startup & Local Testing:"
 	@echo "  make install          Create .venv and install project + dev dependencies"
 	@echo "  make start            Start FastAPI + AG-UI SSE server locally on port $(PORT)"
 	@echo "  make start-adk        Start Google ADK Web UI locally on port $(ADK_PORT)"
-	@echo "  make test             Run full unit & golden evaluation test suite"
+	@echo "  make test             Run full unit, integration, E2E & golden eval test suite"
+	@echo "  make mcp-test         Run MCP Unit + Live MCP Integration + Agent MCP E2E tests"
 	@echo ""
 	@echo "RAG Policy Search (Ingestion, Retrieval Test & GCP Provisioning):"
 	@echo "  make rag-ingest       Parse handbook with C-1..C-6 gates -> $(RAG_OUTPUT_DIR)/policy_chunks.jsonl"
@@ -77,6 +89,7 @@ start: ## Start the FastAPI + AG-UI BFF application server on PORT (default: 808
 	GOOGLE_CLOUD_LOCATION=$(REGION) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
+	USE_LIVE_MCP=$(USE_LIVE_MCP) \
 	$(PYTHON) -m app.ui.ag_ui_server --host 0.0.0.0 --port $(PORT)
 
 run: start ## Alias for 'make start'
@@ -86,10 +99,28 @@ start-adk: ## Launch the Google ADK developer Web UI on ADK_PORT (default: 8000)
 	GOOGLE_CLOUD_LOCATION=$(REGION) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
+	USE_LIVE_MCP=$(USE_LIVE_MCP) \
 	$(PYTHON) -m google.adk.cli web . --port $(ADK_PORT)
 
-test: ## Run the unit and golden evaluation test suite
+test: ## Run the unit, integration, E2E, and golden evaluation test suite
 	$(PYTHON) -m unittest discover -s tests -v
+
+mcp-unit-test: ## Run deterministic MCP Client & ACL Proxy unit tests
+	$(PYTHON) -m unittest tests/unit/test_mcp_client.py -v
+
+mcp-integration-test: ## Run live WorkWeek & ServiceImmediately MCP server integration tests
+	USE_LIVE_MCP=true \
+	$(PYTHON) -m unittest tests/integration/test_mcp_server_integration.py -v
+
+mcp-e2e-test: ## Run End-to-End ADK Agent -> Live MCP Server + Vertex AI RAG Engine tests
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
+	USE_CLOUD_RAG=true \
+	USE_LIVE_MCP=true \
+	$(PYTHON) -m unittest tests/integration/test_agent_mcp_e2e.py -v
+
+mcp-test: mcp-unit-test mcp-integration-test mcp-e2e-test ## Run all MCP unit, live integration, and E2E agent tests
 
 # ------------------------------------------------------------------------------
 # 2. RAG Policy Search: Ingestion, Retrieval Testing & GCP RAG Provisioning
