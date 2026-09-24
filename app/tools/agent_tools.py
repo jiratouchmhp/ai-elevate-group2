@@ -15,6 +15,10 @@ from typing import Any, Dict, List, Optional
 
 from app.acl.mcp_proxy import AntiCorruptionLayerProxy, DEFAULT_ACL_PROXY
 from app.adk_compat import ToolContext
+from app.config.env_config import (
+    get_mcp_authenticated_employee_id,
+    is_live_mcp_enabled,
+)
 from app.governance.audit_logger import DEFAULT_AUDIT_LOGGER
 from app.rag.retriever import DEFAULT_RETRIEVER, PolicyRetriever
 
@@ -23,15 +27,25 @@ def _resolve_context(
     tool_context: Optional[ToolContext], default_agent: str
 ) -> tuple[str, str, str, AntiCorruptionLayerProxy]:
     state = tool_context.state if tool_context and hasattr(tool_context, "state") else {}
-    emp_id = str(state.get("authenticated_employee_id", "EMP-SG-001"))
-    sess_id = (
-        tool_context.session_id
-        if tool_context and hasattr(tool_context, "session_id")
-        else str(state.get("session_id", "sess-default"))
+    default_emp = (
+        get_mcp_authenticated_employee_id()
+        if is_live_mcp_enabled(default=True)
+        else "EMP-SG-001"
     )
+    emp_id = str(state.get("authenticated_employee_id", default_emp) or default_emp)
+    if tool_context and getattr(tool_context, "session_id", None):
+        sess_id = str(tool_context.session_id)
+    elif (
+        tool_context
+        and getattr(tool_context, "session", None)
+        and getattr(tool_context.session, "id", None)
+    ):
+        sess_id = str(tool_context.session.id)
+    else:
+        sess_id = str(state.get("session_id", "sess-default"))
     agent_name = (
         tool_context.agent_name
-        if tool_context and hasattr(tool_context, "agent_name")
+        if tool_context and getattr(tool_context, "agent_name", None)
         else default_agent
     )
     acl: AntiCorruptionLayerProxy = state.get("acl_proxy", DEFAULT_ACL_PROXY)

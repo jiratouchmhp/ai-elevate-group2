@@ -27,7 +27,18 @@ from app.acl.mcp_proxy import (
     EXPLICITLY_DENIED_TOOLS,
     TOOL_CONTRACT_CATALOGUE,
 )
-from app.adk_compat import CallbackContext, LlmRequest, LlmResponse, ToolContext
+from app.adk_compat import (
+    CallbackContext,
+    LlmRequest,
+    LlmResponse,
+    NativeAdkLlmResponse,
+    ToolContext,
+    genai_types,
+)
+from app.config.env_config import (
+    get_mcp_authenticated_employee_id,
+    is_live_mcp_enabled,
+)
 from app.governance.audit_logger import CORPUS_VERSION, DEFAULT_AUDIT_LOGGER
 from app.safety.guardrails import (
     AdvancedSDPScanner,
@@ -52,11 +63,105 @@ FORBIDDEN_SESSION_CACHE_KEYS = (
 )
 
 
-def scrub_dynamic_employee_state(state: Dict[str, Any]) -> None:
+def scrub_dynamic_employee_state(state: Any) -> None:
     """Enforces FR-3.4 & §3.9: Leave balances and profile fields are NEVER cached in session state."""
-    for key in list(state.keys()):
-        if key in FORBIDDEN_SESSION_CACHE_KEYS:
-            del state[key]
+    if state is None:
+        return
+    if isinstance(state, dict):
+        for key in list(state.keys()):
+            if key in FORBIDDEN_SESSION_CACHE_KEYS:
+                del state[key]
+        return
+
+    # Native google.adk.sessions.state.State support
+    state_dict = state.to_dict() if hasattr(state, "to_dict") else {}
+    for key in FORBIDDEN_SESSION_CACHE_KEYS:
+        if key in state_dict or (hasattr(state, "__contains__") and key in state):
+            for backing_attr in ("_value", "_delta"):
+                backing = getattr(state, backing_attr, None)
+                if isinstance(backing, dict) and key in backing:
+                    del backing[key]
+
+
+def _extract_session_id(ctx: Any) -> str:
+    sess_id = getattr(ctx, "session_id", None)
+    if sess_id:
+        return str(sess_id)
+    session_obj = getattr(ctx, "session", None)
+    if session_obj and getattr(session_obj, "id", None):
+        return str(session_obj.id)
+    return "sess-default"
+
+
+def _resolve_employee_id(state: Any) -> str:
+    if state is not None and hasattr(state, "get"):
+        existing = state.get("authenticated_employee_id")
+        if existing:
+            return str(existing)
+    default_emp = (
+        get_mcp_authenticated_employee_id()
+        if is_live_mcp_enabled(default=True)
+        else "EMP-SG-001"
+    )
+    if state is not None and hasattr(state, "__setitem__"):
+        try:
+            state["authenticated_employee_id"] = default_emp
+        except Exception:
+            pass
+    return default_emp
+
+
+def _extract_prompt_text(llm_request: Any) -> str:
+    prompt_attr = getattr(llm_request, "prompt", None)
+    if prompt_attr is not None:
+        return str(prompt_attr)
+    contents = getattr(llm_request, "contents", None) or []
+    for content in reversed(contents):
+        role = getattr(content, "role", "user")
+        parts = getattr(content, "parts", None) or []
+        if role in ("user", None):
+            texts = [
+                str(getattr(p, "text", ""))
+                for p in parts
+                if getattr(p, "text", None)
+            ]
+            if texts:
+                return "\n".join(texts).strip()
+    return ""
+
+
+def _build_callback_response(
+    callback_context: Any,
+    *,
+    text: str,
+    blocked: bool = False,
+    citations: Optional[list[Dict[str, Any]]] = None,
+    custom_events: Optional[list[Dict[str, Any]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Any:
+    if isinstance(callback_context, CallbackContext):
+        return LlmResponse(
+            text=text,
+            blocked=blocked,
+            citations=citations or [],
+            custom_events=custom_events or [],
+            metadata=metadata or {},
+        )
+    if NativeAdkLlmResponse is not None and genai_types is not None:
+        return NativeAdkLlmResponse(
+            content=genai_types.Content(
+                role="model",
+                parts=[genai_types.Part.from_text(text=text)],
+            ),
+            custom_metadata=metadata or {},
+        )
+    return LlmResponse(
+        text=text,
+        blocked=blocked,
+        citations=citations or [],
+        custom_events=custom_events or [],
+        metadata=metadata or {},
+    )
 
 
 def before_model_guardrail_callback(
@@ -67,8 +172,8 @@ def before_model_guardrail_callback(
     state = callback_context.state
     scrub_dynamic_employee_state(state)
 
-    session_id = callback_context.session_id
-    employee_id = str(state.get("authenticated_employee_id", "EMP-SG-001"))
+    session_id = _extract_session_id(callback_context)
+    employee_id = _resolve_employee_id(state)
     scanner: ModelArmorScanner = state.get("model_armor", DEFAULT_MODEL_ARMOR)
     faq_cache: CheapPathFAQCache = state.get("faq_cache", DEFAULT_FAQ_CACHE)
     audit = state.get("audit_logger", DEFAULT_AUDIT_LOGGER)
@@ -86,7 +191,8 @@ def before_model_guardrail_callback(
             outcome="BLOCKED",
             notes=f"Session turn count {turn_count} exceeded max_turns={max_turns}.",
         )
-        return LlmResponse(
+        return _build_callback_response(
+            callback_context,
             text="Rate limit reached for this session. Please start a new session or contact HR Support.",
             blocked=True,
             custom_events=[
@@ -97,12 +203,13 @@ def before_model_guardrail_callback(
             ],
         )
 
-    prompt_text = llm_request.prompt or ""
+    prompt_text = _extract_prompt_text(llm_request)
     verdict = scanner.scan_input(prompt_text)
 
     # Store only SDP-redacted user input in session history (FR-1.4 & §3.9)
-    history = state.setdefault("conversation_history_redacted", [])
+    history = list(state.get("conversation_history_redacted", []))
     history.append({"role": "user", "text": verdict.redacted_text})
+    state["conversation_history_redacted"] = history
 
     if verdict.blocked:
         audit.record(
@@ -119,7 +226,8 @@ def before_model_guardrail_callback(
             outcome="BLOCKED",
             notes=verdict.reason,
         )
-        return LlmResponse(
+        return _build_callback_response(
+            callback_context,
             text=verdict.escalation_message or "I can't process that request right now.",
             blocked=True,
             custom_events=[
@@ -146,7 +254,8 @@ def before_model_guardrail_callback(
             outcome="SUCCESS",
             notes=f"Served from cheap-path FAQ cache (corpus_version={active_corpus_ver}).",
         )
-        return LlmResponse(
+        return _build_callback_response(
+            callback_context,
             text=cached["answer"],
             citations=cached.get("citations", []),
             blocked=False,
@@ -162,12 +271,16 @@ def before_tool_guardrail_callback(
     tool_context: ToolContext,
 ) -> Optional[Dict[str, Any]]:
     """Enforces FR-1.1 capability manifest, D2 sub-agent blast-radius containment, and FR-1.5 RBAC."""
-    tool_name = tool if isinstance(tool, str) else getattr(tool, "__name__", str(tool))
+    if isinstance(tool, str):
+        tool_name = tool
+    else:
+        tool_name = getattr(tool, "name", None) or getattr(tool, "__name__", str(tool))
     state = tool_context.state
     scrub_dynamic_employee_state(state)
 
-    employee_id = str(state.get("authenticated_employee_id", "EMP-SG-001"))
-    agent_name = tool_context.agent_name
+    session_id = _extract_session_id(tool_context)
+    employee_id = _resolve_employee_id(state)
+    agent_name = getattr(tool_context, "agent_name", "root_orchestrator")
     spiffe_id = AGENT_SPIFFE_IDS.get(
         agent_name, f"spiffe://altostrat.sg/ns/agent-runtime/sa/{agent_name}"
     )
@@ -176,7 +289,7 @@ def before_tool_guardrail_callback(
     if tool_name in EXPLICITLY_DENIED_TOOLS:
         reason = EXPLICITLY_DENIED_TOOLS[tool_name]
         audit.record(
-            session_id=tool_context.session_id,
+            session_id=session_id,
             employee_id=employee_id,
             agent_id=spiffe_id,
             tool_invoked=tool_name,
@@ -195,7 +308,7 @@ def before_tool_guardrail_callback(
     spec = TOOL_CONTRACT_CATALOGUE.get(tool_name)
     if not spec:
         audit.record(
-            session_id=tool_context.session_id,
+            session_id=session_id,
             employee_id=employee_id,
             agent_id=spiffe_id,
             tool_invoked=tool_name,
@@ -213,7 +326,7 @@ def before_tool_guardrail_callback(
 
     if agent_name not in spec.allowed_agents:
         audit.record(
-            session_id=tool_context.session_id,
+            session_id=session_id,
             employee_id=employee_id,
             agent_id=spiffe_id,
             tool_invoked=tool_name,
@@ -251,14 +364,25 @@ def after_model_guardrail_callback(
     state = callback_context.state
     scrub_dynamic_employee_state(state)
 
+    session_id = _extract_session_id(callback_context)
     scanner: ModelArmorScanner = state.get("model_armor", DEFAULT_MODEL_ARMOR)
     audit = state.get("audit_logger", DEFAULT_AUDIT_LOGGER)
-    employee_id = str(state.get("authenticated_employee_id", "EMP-SG-001"))
+    employee_id = _resolve_employee_id(state)
 
-    verdict = scanner.scan_output(llm_response.text)
+    has_direct_text = hasattr(llm_response, "text")
+    if has_direct_text:
+        raw_output_text = getattr(llm_response, "text", "") or ""
+    else:
+        content_obj = getattr(llm_response, "content", None)
+        parts = getattr(content_obj, "parts", None) or []
+        raw_output_text = "\n".join(
+            str(getattr(p, "text", "")) for p in parts if getattr(p, "text", None)
+        )
+
+    verdict = scanner.scan_output(raw_output_text)
     if verdict.blocked:
         audit.record(
-            session_id=callback_context.session_id,
+            session_id=session_id,
             employee_id=employee_id,
             pdp_decision="DENY",
             pdp_rule_id=f"MODEL_ARMOR_OUTPUT_{verdict.category}",
@@ -270,7 +394,8 @@ def after_model_guardrail_callback(
             outcome="BLOCKED",
             notes=verdict.reason,
         )
-        return LlmResponse(
+        return _build_callback_response(
+            callback_context,
             text=verdict.escalation_message or "I can't process that request right now.",
             blocked=True,
             custom_events=[
@@ -283,7 +408,16 @@ def after_model_guardrail_callback(
         )
 
     # Replace any inadvertent SPII in output with SDP-deidentified text
-    llm_response.text = verdict.redacted_text
-    history = state.setdefault("conversation_history_redacted", [])
+    if has_direct_text:
+        llm_response.text = verdict.redacted_text
+    else:
+        content_obj = getattr(llm_response, "content", None)
+        parts = getattr(content_obj, "parts", None) or []
+        for p in parts:
+            if getattr(p, "text", None):
+                p.text = scanner.scan_output(str(p.text)).redacted_text
+
+    history = list(state.get("conversation_history_redacted", []))
     history.append({"role": "assistant", "text": verdict.redacted_text})
+    state["conversation_history_redacted"] = history
     return llm_response

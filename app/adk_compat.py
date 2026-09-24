@@ -14,53 +14,61 @@ from typing import Any, Callable, Dict, List, Optional
 try:
     from google.adk.agents import Agent, LlmAgent  # type: ignore
     from google.adk.apps import App  # type: ignore
-    from google.adk.agents.callback_context import CallbackContext  # type: ignore
-    from google.adk.models import LlmRequest, LlmResponse  # type: ignore
-    from google.adk.tools import ToolContext  # type: ignore
+    from google.adk.models import LlmResponse as NativeAdkLlmResponse  # type: ignore
+    from google.genai import types as genai_types  # type: ignore
 
     ADK_NATIVE_AVAILABLE = True
 except Exception:
     ADK_NATIVE_AVAILABLE = False
+    NativeAdkLlmResponse = None  # type: ignore
+    genai_types = None  # type: ignore
 
-    @dataclass
-    class LlmRequest:
-        prompt: str = ""
-        model: str = "gemini-2.5-pro"
-        contents: List[Any] = field(default_factory=list)
-        config: Dict[str, Any] = field(default_factory=dict)
 
-    @dataclass
-    class LlmResponse:
-        text: str = ""
-        custom_events: List[Dict[str, Any]] = field(default_factory=list)
-        citations: List[Dict[str, Any]] = field(default_factory=list)
-        confirmation_card: Optional[Dict[str, Any]] = None
-        blocked: bool = False
-        metadata: Dict[str, Any] = field(default_factory=dict)
+@dataclass
+class LlmRequest:
+    prompt: str = ""
+    model: str = "gemini-2.5-pro"
+    contents: List[Any] = field(default_factory=list)
+    config: Dict[str, Any] = field(default_factory=dict)
 
-    class CallbackContext:
-        def __init__(
-            self,
-            *,
-            session_id: str = "sess-default",
-            agent_name: str = "root_orchestrator",
-            state: Optional[Dict[str, Any]] = None,
-        ) -> None:
-            self.session_id = session_id
-            self.agent_name = agent_name
-            self.state: Dict[str, Any] = state if state is not None else {}
 
-    class ToolContext(CallbackContext):
-        def __init__(
-            self,
-            *,
-            session_id: str = "sess-default",
-            agent_name: str = "root_orchestrator",
-            state: Optional[Dict[str, Any]] = None,
-            correlation_id: Optional[str] = None,
-        ) -> None:
-            super().__init__(session_id=session_id, agent_name=agent_name, state=state)
-            self.correlation_id = correlation_id
+@dataclass
+class LlmResponse:
+    text: str = ""
+    custom_events: List[Dict[str, Any]] = field(default_factory=list)
+    citations: List[Dict[str, Any]] = field(default_factory=list)
+    confirmation_card: Optional[Dict[str, Any]] = None
+    blocked: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class CallbackContext:
+    def __init__(
+        self,
+        *,
+        session_id: str = "sess-default",
+        agent_name: str = "root_orchestrator",
+        state: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.session_id = session_id
+        self.agent_name = agent_name
+        self.state: Dict[str, Any] = state if state is not None else {}
+
+
+class ToolContext(CallbackContext):
+    def __init__(
+        self,
+        *,
+        session_id: str = "sess-default",
+        agent_name: str = "root_orchestrator",
+        state: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
+    ) -> None:
+        super().__init__(session_id=session_id, agent_name=agent_name, state=state)
+        self.correlation_id = correlation_id
+
+
+if not ADK_NATIVE_AVAILABLE:
 
     class LlmAgent:
         """ADK 2+ LlmAgent representation with hierarchical sub-agents and callbacks."""

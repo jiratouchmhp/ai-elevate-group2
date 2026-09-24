@@ -3,7 +3,7 @@
 # Target GCP Project: ai-training-van-01 (Region: asia-southeast1)
 # ==============================================================================
 
-export PATH      := /usr/local/google/home/vannick/google-cloud-sdk/bin:$(PATH)
+export PATH      := /usr/local/google/home/vannick/.local/bin:/usr/local/google/home/vannick/google-cloud-sdk/bin:$(PATH)
 
 -include .env
 export
@@ -15,7 +15,8 @@ IMAGE_TAG        ?= 1.0.0
 PORT             ?= 8080
 ADK_PORT         ?= 8000
 VENV             ?= .venv
-PYTHON           := $(shell if [ -x "$(VENV)/bin/python" ] && "$(VENV)/bin/python" -c "import yaml" >/dev/null 2>&1; then echo "$(VENV)/bin/python"; else echo "python3"; fi)
+ADK_TOOL_PYTHON  ?= /usr/local/google/home/vannick/.local/share/uv/tools/google-adk/bin/python
+PYTHON           := $(shell if [ -x "$(ADK_TOOL_PYTHON)" ]; then echo "$(ADK_TOOL_PYTHON)"; elif [ -x "$(VENV)/bin/python" ] && "$(VENV)/bin/python" -c "import yaml" >/dev/null 2>&1; then echo "$(VENV)/bin/python"; else echo "python3"; fi)
 PIP              := $(if $(wildcard $(VENV)/bin/pip),$(VENV)/bin/pip,pip3)
 TF_DIR           ?= deployment/terraform/single-project
 RAG_OUTPUT_DIR   ?= build/rag
@@ -23,6 +24,7 @@ RAG_BUCKET_URI   := gs://$(PROJECT_ID)-hr-policy-corpus
 RAG_DATASTORE_ID ?= altostrat-sg-policy-handbook-ds
 VERTEX_RAG_CORPUS_ID ?= 4611686018427387904
 USE_CLOUD_RAG    ?= true
+GOOGLE_GENAI_USE_VERTEXAI ?= TRUE
 MCP_SERVER_BASE_URL ?= https://mock-saas.aishprabhat.demo.altostrat.com
 WORKWEEK_MCP_URL ?= $(MCP_SERVER_BASE_URL)/work-week/mcp/
 SERVICE_IMMEDIATELY_MCP_URL ?= $(MCP_SERVER_BASE_URL)/service-immediately/mcp/
@@ -32,7 +34,8 @@ AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install start run start-adk test \
+.PHONY: help install start start-ui run start-adk local-adk start-local dev local-up \
+        test-local local-user-test test \
         mcp-test mcp-unit-test mcp-integration-test mcp-e2e-test \
         rag-ingest rag-test test-retrieval rag-agent-test rag-provision \
         gcp-auth-check gcp-enable-apis gcp-setup-ar \
@@ -43,18 +46,23 @@ AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 help: ## Show available targets and current GCP configuration
 	@echo "=============================================================================="
 	@echo " Altostrat Singapore — HR Agentic Assistant (MVP 1)"
-	@echo " Target GCP Project    : $(PROJECT_ID)"
+	@echo " Target GCP Project    : $(PROJECT_ID) (Vertex AI: $(GOOGLE_GENAI_USE_VERTEXAI))"
 	@echo " Target Region         : $(REGION)"
 	@echo " RAG Corpus Bucket     : $(RAG_BUCKET_URI)"
 	@echo " Vertex AI RAG Corpus  : $(VERTEX_RAG_CORPUS_ID) ($(REGION))"
 	@echo " MCP Server Base URL   : $(MCP_SERVER_BASE_URL)"
 	@echo " MCP Auth Employee ID  : $(MCP_AUTHENTICATED_EMPLOYEE_ID)"
+	@echo " Active Python / ADK   : $(PYTHON)"
 	@echo "=============================================================================="
 	@echo ""
-	@echo "Application Startup & Local Testing:"
-	@echo "  make install          Create .venv and install project + dev dependencies"
-	@echo "  make start            Start FastAPI + AG-UI SSE server locally on port $(PORT)"
-	@echo "  make start-adk        Start Google ADK Web UI locally on port $(ADK_PORT)"
+	@echo "Local User Testing (UI + Google ADK + Live MCP + GCP Vertex AI RAG):"
+	@echo "  make test-local       Verify UI + ADK + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID)) + GCP RAG as user before deploy"
+	@echo "  make start-local      Run BOTH Customer Chat UI ( :$(PORT) ) & ADK Web UI ( :$(ADK_PORT) ) locally"
+	@echo "  make start            Start Customer Chat UI (FastAPI + AG-UI SSE) on http://vannick2.c.googlers.com:$(PORT)"
+	@echo "  make start-adk        Start Google ADK Developer Web UI on http://vannick2.c.googlers.com:$(ADK_PORT)"
+	@echo ""
+	@echo "Automated Test Suites:"
+	@echo "  make install          Install/sync Python dependencies via uv / pip"
 	@echo "  make test             Run full unit, integration, E2E & golden eval test suite"
 	@echo "  make mcp-test         Run MCP Unit + Live MCP Integration + Agent MCP E2E tests"
 	@echo ""
@@ -77,30 +85,88 @@ help: ## Show available targets and current GCP configuration
 	@echo "=============================================================================="
 
 # ------------------------------------------------------------------------------
-# 1. Local Setup, Application Startup & Tests
+# 1. Local Setup, Application Startup & Pre-Deployment User Testing
 # ------------------------------------------------------------------------------
-install: ## Install Python dependencies into virtual environment
-	@if [ ! -x "$(VENV)/bin/pip" ]; then python3 -m venv --clear $(VENV); fi
-	$(VENV)/bin/pip install --upgrade pip
-	$(VENV)/bin/pip install -e ".[dev]"
+install: ## Install Python dependencies into virtual environment (supports uv and pip)
+	@if command -v uv >/dev/null 2>&1; then \
+		uv venv --seed $(VENV) && uv pip install --python $(VENV)/bin/python -e ".[dev]"; \
+	else \
+		python3 -m venv --clear $(VENV) && $(VENV)/bin/pip install --upgrade pip && $(VENV)/bin/pip install -e ".[dev]"; \
+	fi
 
-start: ## Start the FastAPI + AG-UI BFF application server on PORT (default: 8080)
+start: ## Start the Customer Chat UI (FastAPI + AG-UI BFF) locally on PORT (default: 8080)
+	@echo ">>> Starting Customer Chat UI (AG-UI BFF) on http://vannick2.c.googlers.com:$(PORT)"
+	@echo ">>> Connected to GCP RAG Corpus $(VERTEX_RAG_CORPUS_ID) ($(REGION)) + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
 	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
 	USE_LIVE_MCP=$(USE_LIVE_MCP) \
+	MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
 	$(PYTHON) -m app.ui.ag_ui_server --host 0.0.0.0 --port $(PORT)
+
+start-ui: start ## Alias for 'make start'
 
 run: start ## Alias for 'make start'
 
-start-adk: ## Launch the Google ADK developer Web UI on ADK_PORT (default: 8000)
+start-adk: ## Launch the Google ADK Developer Web UI on ADK_PORT (default: 8000)
+	@echo ">>> Starting Google ADK Developer Web UI on http://vannick2.c.googlers.com:$(ADK_PORT)"
+	@echo ">>> Select agent 'app' (altostrat_hr_agent) — connected to Vertex AI + GCP RAG + Live MCP ($(MCP_AUTHENTICATED_EMPLOYEE_ID))"
 	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
 	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
 	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
 	USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
 	USE_LIVE_MCP=$(USE_LIVE_MCP) \
-	$(PYTHON) -m google.adk.cli web . --port $(ADK_PORT)
+	MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
+	$(PYTHON) -m google.adk.cli web . --host 0.0.0.0 --port $(ADK_PORT)
+
+local-adk: start-adk ## Alias for 'make start-adk'
+
+start-local: ## Start BOTH Customer Chat UI (:8080) and Google ADK Web UI (:8000) locally with Live MCP & GCP RAG
+	@echo "=============================================================================="
+	@echo " Launching Local Pre-Deployment Environment (Live MCP + GCP Vertex AI RAG)"
+	@echo "   1. Customer Chat UI (AG-UI BFF) : http://vannick2.c.googlers.com:$(PORT)"
+	@echo "   2. Google ADK Developer Web UI  : http://vannick2.c.googlers.com:$(ADK_PORT)"
+	@echo "   3. GCP Vertex AI RAG Corpus     : $(VERTEX_RAG_CORPUS_ID) ($(PROJECT_ID) / $(REGION))"
+	@echo "   4. Live Vendor MCP Server       : $(MCP_SERVER_BASE_URL) (User: $(MCP_AUTHENTICATED_EMPLOYEE_ID))"
+	@echo " Press Ctrl+C to stop both servers."
+	@echo "=============================================================================="
+	@bash -c 'trap "kill 0" INT TERM EXIT; \
+		GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+		GOOGLE_CLOUD_LOCATION=$(REGION) \
+		GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
+		VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
+		USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
+		USE_LIVE_MCP=$(USE_LIVE_MCP) \
+		MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
+		$(PYTHON) -m app.ui.ag_ui_server --host 0.0.0.0 --port $(PORT) & \
+		GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+		GOOGLE_CLOUD_LOCATION=$(REGION) \
+		GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
+		VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
+		USE_CLOUD_RAG=$(USE_CLOUD_RAG) \
+		USE_LIVE_MCP=$(USE_LIVE_MCP) \
+		MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
+		$(PYTHON) -m google.adk.cli web . --host 0.0.0.0 --port $(ADK_PORT) & \
+		wait'
+
+dev: start-local ## Alias for 'make start-local'
+
+local-up: start-local ## Alias for 'make start-local'
+
+test-local: ## Test the local UI + ADK Agent + Live MCP Server (EMP-836) + GCP Vertex AI RAG as a user before deploying to GCP
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	GOOGLE_CLOUD_LOCATION=$(REGION) \
+	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
+	VERTEX_RAG_CORPUS_ID=$(VERTEX_RAG_CORPUS_ID) \
+	USE_CLOUD_RAG=true \
+	USE_LIVE_MCP=true \
+	MCP_AUTHENTICATED_EMPLOYEE_ID=$(MCP_AUTHENTICATED_EMPLOYEE_ID) \
+	$(PYTHON) -m app.ui.local_user_test
+
+local-user-test: test-local ## Alias for 'make test-local'
 
 test: ## Run the unit, integration, E2E, and golden evaluation test suite
 	$(PYTHON) -m unittest discover -s tests -v
