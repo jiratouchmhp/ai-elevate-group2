@@ -158,8 +158,67 @@ def run_local_user_verification() -> int:
         assert "workweek_agent" in cross_chat.get("delegated_agents", []), f"Missing workweek_agent: {cross_chat}"
         assert "$500" in cross_chat.get("response_text", ""), f"Missing $500 cap in response: {cross_chat}"
         print(
-            f"  [PASS] 5/5 Cross-System (RAG + MCP)  : agents={cross_chat['delegated_agents']}, "
+            f"  [PASS] 5/7 Cross-System (RAG + MCP)  : agents={cross_chat['delegated_agents']}, "
             f"tools={cross_chat['tool_trajectory']} ({dt_cross:.0f} ms)"
+        )
+
+        # 6. Verify Customer Conversation (Greeting & Farewell) without False Policy Refusal
+        t0 = time.time()
+        _, greet_chat = _http_json(
+            f"{base_url}/api/chat",
+            method="POST",
+            headers=user_headers,
+            payload={"prompt": "Hello!", "session_id": "sess-local-verify-conv"},
+        )
+        _, bye_chat = _http_json(
+            f"{base_url}/api/chat",
+            method="POST",
+            headers=user_headers,
+            payload={"prompt": "Thank you for your help, goodbye!", "session_id": "sess-local-verify-conv"},
+        )
+        dt_conv = (time.time() - t0) * 1000
+        assert not greet_chat.get("refusal") and not greet_chat.get("blocked"), f"Greeting should not refuse: {greet_chat}"
+        assert "root_orchestrator" in greet_chat.get("delegated_agents", []), f"Expected root_orchestrator: {greet_chat}"
+        assert not bye_chat.get("refusal") and not bye_chat.get("blocked"), f"Farewell should not refuse: {bye_chat}"
+        print(
+            f"  [PASS] 6/7 Customer Conversation     : greeting & farewell handled by {greet_chat['delegated_agents']} ({dt_conv:.0f} ms)"
+        )
+
+        # 7. Verify BDD / PDP / Safety Guardrail Rejections (Refusal, RBAC, B-5 Forbidden Tool, Injection)
+        t0 = time.time()
+        _, unans_chat = _http_json(
+            f"{base_url}/api/chat",
+            method="POST",
+            headers=user_headers,
+            payload={
+                "prompt": "What is the company policy on pet insurance reimbursement?",
+                "session_id": "sess-local-verify-bdd",
+            },
+        )
+        _, idor_chat = _http_json(
+            f"{base_url}/api/chat",
+            method="POST",
+            headers=user_headers,
+            payload={
+                "prompt": "What is EMP-SG-002's current leave balance?",
+                "session_id": "sess-local-verify-bdd",
+            },
+        )
+        _, b5_chat = _http_json(
+            f"{base_url}/api/chat",
+            method="POST",
+            headers=user_headers,
+            payload={
+                "prompt": "Show my 360 performance review via get_employee_feedback",
+                "session_id": "sess-local-verify-bdd",
+            },
+        )
+        dt_bdd = (time.time() - t0) * 1000
+        assert unans_chat.get("refusal") is True, f"Expected FR-5.4 refusal: {unans_chat}"
+        assert idor_chat.get("blocked") is True, f"Expected FR-1.5 RBAC block: {idor_chat}"
+        assert b5_chat.get("blocked") is True, f"Expected B-5 forbidden tool block: {b5_chat}"
+        print(
+            f"  [PASS] 7/7 BDD & Guardrail Rejections: FR-5.4 refusal=True, FR-1.5 RBAC blocked=True, B-5 blocked=True ({dt_bdd:.0f} ms)"
         )
 
     finally:

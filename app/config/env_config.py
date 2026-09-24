@@ -120,3 +120,41 @@ def is_live_mcp_enabled(default: bool = False) -> bool:
         return default and (get_mcp_token() is not None)
     enabled = raw.strip().lower() in ("1", "true", "yes", "on")
     return enabled and (get_mcp_token() is not None)
+
+
+DEFAULT_GCP_PROJECT_ID = "ai-training-van-01"
+DEFAULT_FIRESTORE_DATABASE = "hr-agent-transaction-ledger"
+DEFAULT_FIRESTORE_LOCATION = "asia-southeast1"
+
+
+def get_gcp_project_id() -> str:
+    """Returns the target GCP Project ID (default: ai-training-van-01)."""
+    return (
+        os.environ.get("GOOGLE_CLOUD_PROJECT", DEFAULT_GCP_PROJECT_ID).strip()
+        or DEFAULT_GCP_PROJECT_ID
+    )
+
+
+def get_firestore_database() -> str:
+    """Returns the Cloud Firestore database ID (default: hr-agent-transaction-ledger)."""
+    return (
+        os.environ.get("FIRESTORE_DATABASE", DEFAULT_FIRESTORE_DATABASE).strip()
+        or DEFAULT_FIRESTORE_DATABASE
+    )
+
+
+def get_firestore_location() -> str:
+    """Returns the regional location for Cloud Firestore (default: asia-southeast1 per CON-5)."""
+    return (
+        os.environ.get("FIRESTORE_LOCATION", DEFAULT_FIRESTORE_LOCATION).strip()
+        or DEFAULT_FIRESTORE_LOCATION
+    )
+
+
+def is_firestore_enabled(default: bool = True) -> bool:
+    """Returns True if `USE_FIRESTORE` is enabled (defaults to True when configured)."""
+    raw = os.environ.get("USE_FIRESTORE")
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
