@@ -424,6 +424,80 @@ try:
     async def index_page() -> str:
         return INDEX_HTML
 
+    @app.post("/api/reasoning_engine")
+    async def reasoning_engine_endpoint(request: Request) -> JSONResponse:
+        body = await request.json()
+        class_method = body.get("class_method", "query")
+        inp = body.get("input") or {}
+        user_id = inp.get("user_id") or resolve_iap_employee_id(dict(request.headers))
+        session_id = inp.get("session_id") or "sess-re-001"
+
+        if class_method in ("create_session", "async_create_session"):
+            return JSONResponse(
+                {"output": {"id": session_id, "user_id": user_id, "app_name": "altostrat_hr_agent", "state": {}}}
+            )
+        if class_method in ("get_session", "async_get_session"):
+            state = bff.runtime.get_session_state(session_id, user_id)
+            return JSONResponse(
+                {
+                    "output": {
+                        "id": session_id,
+                        "user_id": user_id,
+                        "app_name": "altostrat_hr_agent",
+                        "state": {"pending_confirmation": state.get("pending_confirmation")},
+                    }
+                }
+            )
+        if class_method in ("list_sessions", "async_list_sessions"):
+            return JSONResponse(
+                {"output": {"sessions": [{"id": session_id, "user_id": user_id, "app_name": "altostrat_hr_agent"}]}}
+            )
+        if class_method in ("delete_session", "async_delete_session"):
+            return JSONResponse({"output": {"status": "deleted", "id": session_id}})
+
+        msg = inp.get("message") or inp.get("prompt") or inp.get("input") or ""
+        if isinstance(msg, dict):
+            parts = msg.get("parts") or []
+            msg = " ".join(p.get("text", "") for p in parts if isinstance(p, dict)) or str(msg)
+        result = handle_chat_payload(
+            {"prompt": str(msg), "session_id": session_id, "confirmed": bool(inp.get("confirmed", False))},
+            dict(request.headers),
+        )
+        return JSONResponse({"output": result})
+
+    @app.post("/api/stream_reasoning_engine")
+    async def stream_reasoning_engine_endpoint(request: Request) -> StreamingResponse:
+        body = await request.json()
+        inp = body.get("input") or {}
+        session_id = inp.get("session_id") or "sess-re-001"
+        msg = inp.get("message") or inp.get("prompt") or inp.get("input") or ""
+        if isinstance(msg, dict):
+            parts = msg.get("parts") or []
+            msg = " ".join(p.get("text", "") for p in parts if isinstance(p, dict)) or str(msg)
+
+        result = handle_chat_payload(
+            {"prompt": str(msg), "session_id": session_id, "confirmed": bool(inp.get("confirmed", False))},
+            dict(request.headers),
+        )
+
+        async def _stream_gen():
+            event_payload = {
+                "content": {
+                    "role": "model",
+                    "parts": [{"text": result.get("response_text", "")}],
+                },
+                "author": "altostrat_hr_agent",
+                "custom_metadata": {
+                    "citations": result.get("citations", []),
+                    "confirmation_card": result.get("confirmation_card"),
+                    "delegated_agents": result.get("delegated_agents", []),
+                    "tool_trajectory": result.get("tool_trajectory", []),
+                },
+            }
+            yield json.dumps(event_payload) + "\n"
+
+        return StreamingResponse(_stream_gen(), media_type="application/json")
+
 except ImportError:
     app = None  # type: ignore
 

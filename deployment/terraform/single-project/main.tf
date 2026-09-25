@@ -31,13 +31,11 @@ provider "google" {
 # 0. Enable Required GCP APIs on ai-training-van-01
 locals {
   required_apis = toset([
-    "compute.googleapis.com",
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "secretmanager.googleapis.com",
     "firestore.googleapis.com",
-    "bigquery.googleapis.com",
     "aiplatform.googleapis.com",
     "storage.googleapis.com",
     "discoveryengine.googleapis.com",
@@ -51,7 +49,7 @@ resource "google_project_service" "enabled_apis" {
   disable_on_destroy = false
 }
 
-# 0b. Artifact Registry Repository for Cloud Run Container Images
+# 1. Artifact Registry Repository for Cloud Run Container Images
 resource "google_artifact_registry_repository" "hr_agent_repo" {
   project       = var.project_id
   location      = var.region
@@ -61,58 +59,7 @@ resource "google_artifact_registry_repository" "hr_agent_repo" {
   depends_on    = [google_project_service.enabled_apis]
 }
 
-# 1. VPC & Private Service Connect (PSC) Endpoint for Regional Model Armor (CON-6, §4.7)
-# Note: VPC Service Controls perimeter is explicitly deferred to Pilot (OOS-1).
-resource "google_compute_network" "agent_vpc" {
-  name                    = "altostrat-hr-agent-vpc"
-  auto_create_subnetworks = false
-  depends_on              = [google_project_service.enabled_apis]
-}
-
-resource "google_compute_subnetwork" "agent_subnet" {
-  name                     = "altostrat-hr-agent-sg-subnet"
-  ip_cidr_range            = "10.20.0.0/24"
-  region                   = var.region
-  network                  = google_compute_network.agent_vpc.id
-  private_ip_google_access = true
-}
-
-resource "google_compute_address" "psc_model_armor_ip" {
-  name         = "psc-model-armor-asia-southeast1"
-  region       = var.region
-  subnetwork   = google_compute_subnetwork.agent_subnet.id
-  address_type = "INTERNAL"
-}
-
-# 2. Secret Manager for Per-Persona MCP PATs (OQ-12 / D10)
-resource "google_secret_manager_secret" "persona_mcp_tokens" {
-  for_each  = toset(["emp-sg-001", "emp-sg-002", "emp-sg-003"])
-  secret_id = "mcp-pat-${each.key}"
-  replication {
-    user_managed {
-      replicas {
-        location = var.region
-      }
-    }
-  }
-  labels = {
-    app         = "altostrat-hr-agent"
-    env         = "mvp1"
-    cost_centre = "hr-it-shared"
-  }
-  depends_on = [google_project_service.enabled_apis]
-}
-
-# 3. Firestore Audit & Transaction Ledger Databases (Idempotency, Saga State & BDD Audit Trail, §1.3, §3.6, §4.6)
-resource "google_firestore_database" "default_database" {
-  project                 = var.project_id
-  name                    = "(default)"
-  location_id             = var.region
-  type                    = "FIRESTORE_NATIVE"
-  delete_protection_state = "DELETE_PROTECTION_DISABLED"
-  depends_on              = [google_project_service.enabled_apis]
-}
-
+# 2. Firestore Audit & Transaction Ledger Database (Idempotency, Saga State & BDD Audit Trail, §1.3, §3.6, §4.6)
 resource "google_firestore_database" "transaction_ledger" {
   project                 = var.project_id
   name                    = "hr-agent-transaction-ledger"
@@ -122,19 +69,7 @@ resource "google_firestore_database" "transaction_ledger" {
   depends_on              = [google_project_service.enabled_apis]
 }
 
-# 4. BigQuery Audit & Evaluation Warehouse (NFR-1.2, §4.6, §9)
-resource "google_bigquery_dataset" "audit_and_eval_warehouse" {
-  dataset_id = "altostrat_hr_agent_audit"
-  location   = var.region
-  labels = {
-    app         = "altostrat-hr-agent"
-    env         = "mvp1"
-    cost_centre = "hr-it-shared"
-  }
-  depends_on = [google_project_service.enabled_apis]
-}
-
-# 5. Grounding & Data Plane: GCS Policy Corpus Bucket for Vertex AI RAG Engine (§3.7, D3)
+# 3. Grounding & Data Plane: GCS Policy Corpus Bucket for Vertex AI RAG Engine (§3.7, D3)
 resource "google_storage_bucket" "policy_corpus_bucket" {
   name                        = "${var.project_id}-hr-policy-corpus"
   location                    = var.region
@@ -148,11 +83,13 @@ resource "google_storage_bucket" "policy_corpus_bucket" {
   depends_on = [google_project_service.enabled_apis]
 }
 
-# 6. Cloud Run Integration Plane: Anti-Corruption Layer (ACL) + Policy Decision Point (PDP) (§1.3, D4, D9)
+# 4. Cloud Run Integration Plane: Anti-Corruption Layer (ACL) + Policy Decision Point (PDP) (§1.3, D4, D9)
 resource "google_cloud_run_v2_service" "acl_pdp_service" {
-  name     = "altostrat-hr-acl-pdp"
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  name                 = "altostrat-hr-acl-pdp"
+  location             = var.region
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = true
+  deletion_protection  = false
 
   template {
     containers {
@@ -164,6 +101,10 @@ resource "google_cloud_run_v2_service" "acl_pdp_service" {
       env {
         name  = "GOOGLE_CLOUD_LOCATION"
         value = "global"
+      }
+      env {
+        name  = "GOOGLE_GENAI_USE_VERTEXAI"
+        value = "TRUE"
       }
       env {
         name  = "VERTEX_RAG_LOCATION"
@@ -209,20 +150,46 @@ resource "google_cloud_run_v2_service" "acl_pdp_service" {
         name  = "FIRESTORE_LOCATION"
         value = var.region
       }
+      env {
+        name  = "MCP_SERVER_BASE_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com"
+      }
+      env {
+        name  = "WORKWEEK_MCP_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com/work-week/mcp/"
+      }
+      env {
+        name  = "SERVICE_IMMEDIATELY_MCP_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com/service-immediately/mcp/"
+      }
+      env {
+        name  = "MCP_TOKEN"
+        value = "mcp_m6BfI7HZPQy4gSAaFHS-bha9bX8Bg_EoARM050hQhec"
+      }
+      env {
+        name  = "MCP_AUTHENTICATED_EMPLOYEE_ID"
+        value = "EMP-836"
+      }
+      env {
+        name  = "USE_LIVE_MCP"
+        value = "true"
+      }
     }
   }
   depends_on = [google_artifact_registry_repository.hr_agent_repo, google_firestore_database.transaction_ledger]
 }
 
-# 7. Cloud Run Experience Plane: React + AG-UI BFF behind IAP (§1.3, §3.10, D8)
+# 5. Cloud Run Experience Plane: React + AG-UI BFF Public Demo Endpoint (§1.3, §3.10, D8)
 resource "google_cloud_run_v2_service" "chat_ui_bff" {
-  name     = "altostrat-hr-chat-ui"
-  location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  name                 = "altostrat-hr-chat-ui"
+  location             = var.region
+  ingress              = "INGRESS_TRAFFIC_ALL"
+  invoker_iam_disabled = true
+  deletion_protection  = false
 
   template {
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/hr-agent/chat-ui-bff:1.0.0"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/hr-agent/acl-pdp:1.0.0"
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
@@ -230,6 +197,10 @@ resource "google_cloud_run_v2_service" "chat_ui_bff" {
       env {
         name  = "GOOGLE_CLOUD_LOCATION"
         value = "global"
+      }
+      env {
+        name  = "GOOGLE_GENAI_USE_VERTEXAI"
+        value = "TRUE"
       }
       env {
         name  = "VERTEX_RAG_LOCATION"
@@ -266,6 +237,30 @@ resource "google_cloud_run_v2_service" "chat_ui_bff" {
       env {
         name  = "FIRESTORE_LOCATION"
         value = var.region
+      }
+      env {
+        name  = "MCP_SERVER_BASE_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com"
+      }
+      env {
+        name  = "WORKWEEK_MCP_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com/work-week/mcp/"
+      }
+      env {
+        name  = "SERVICE_IMMEDIATELY_MCP_URL"
+        value = "https://mock-saas.aishprabhat.demo.altostrat.com/service-immediately/mcp/"
+      }
+      env {
+        name  = "MCP_TOKEN"
+        value = "mcp_m6BfI7HZPQy4gSAaFHS-bha9bX8Bg_EoARM050hQhec"
+      }
+      env {
+        name  = "MCP_AUTHENTICATED_EMPLOYEE_ID"
+        value = "EMP-836"
+      }
+      env {
+        name  = "USE_LIVE_MCP"
+        value = "true"
       }
     }
   }

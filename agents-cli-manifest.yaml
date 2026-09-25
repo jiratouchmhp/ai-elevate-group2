@@ -1,0 +1,6 @@
+name: altostrat-hr-agent
+language: python
+framework: google-adk
+deployment_target: agent_runtime
+agent_directory: app
+acli_version: 1.6.1

@@ -81,16 +81,48 @@ class RetrievalResponse:
 
 
 def _resolve_gcloud_access_token() -> Optional[str]:
-    """Resolves an OAuth2 bearer token for live Vertex AI RAG Engine calls."""
+    """Resolves an OAuth2 bearer token for live Vertex AI RAG Engine calls (ADC / Metadata / gcloud)."""
     import os
     import shutil
     import subprocess
     from pathlib import Path
 
-    env_token = os.environ.get("VERTEX_RAG_ACCESS_TOKEN")
+    env_token = os.environ.get("VERTEX_RAG_ACCESS_TOKEN") or os.environ.get("GCP_ACCESS_TOKEN")
     if env_token:
         return env_token.strip()
 
+    # 1. Try Application Default Credentials (google.auth) — standard on Cloud Run & Agent Runtime
+    try:
+        import google.auth
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+
+        creds, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        if not creds.valid:
+            creds.refresh(GoogleAuthRequest())
+        if creds.token:
+            return str(creds.token).strip()
+    except Exception:
+        pass
+
+    # 2. Try GCP Metadata Server directly (Cloud Run / Vertex AI Agent Runtime container fallback)
+    try:
+        import httpx
+
+        resp = httpx.get(
+            "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+            headers={"Metadata-Flavor": "Google"},
+            timeout=2.0,
+        )
+        if resp.status_code == 200:
+            tok = resp.json().get("access_token")
+            if tok:
+                return str(tok).strip()
+    except Exception:
+        pass
+
+    # 3. Fallback to gcloud CLI for local developer environment
     gcloud_bin = shutil.which("gcloud")
     if not gcloud_bin:
         fallback = Path.home() / "google-cloud-sdk" / "bin" / "gcloud"
