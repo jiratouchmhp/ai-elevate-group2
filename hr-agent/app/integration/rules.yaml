@@ -1,0 +1,45 @@
+# Policy-as-data for the Policy Decision Point (SDD §3.8, §5.3).
+# A change here is a version bump + regression test, never a prompt edit.
+rules_version: "1.1.0"  # 1.1.0: LEAVE_OVERLAP (eval RCA rt-rb-004)
+source: "Altostrat Singapore Employee Policy Handbook (July 2026)"
+
+leave:
+  # LEAVE_NOTICE_15D is a WARNING, not a block (SDD §5.3, OQ-2 pending HR sign-off).
+  notice_days_warn: 15
+  # Vacation may be taken in half- or full-day increments (§1.2, §20.2).
+  allowed_increment: 0.5
+  types: ["Vacation", "Sick"]
+
+ticket:
+  # Handbook §5.5 lifecycle — STRICTER than the backend, which allows New -> Closed.
+  lifecycle: ["New", "In Progress", "Resolved", "Closed"]
+  priorities: ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"]
+  categories: ["Hardware", "Software", "Network", "Facilities", "HRSD", "Access", "Travel", "Other"]
+  # §5.5: minor facility issues must be '4 - Low'; inflated priority is downgraded.
+  low_priority_keywords: ["chair", "squeak", "squeaky", "cosmetic", "wobbly", "scratch", "desk lamp", "mouse pad"]
+  # Critical/High claims must match at least one of these impact criteria.
+  critical_criteria: ["outage", "down for everyone", "all users", "security breach", "data breach",
+                      "ransomware", "production down", "entire office", "cannot work at all", "fire", "flood"]
+  high_criteria: ["cannot work", "blocked", "unable to work", "vpn", "laptop not booting", "cannot log in",
+                  "no network", "deadline"]
+  dedupe_window_minutes: 5
+  dedupe_similarity: 0.6
+
+equipment:           # §5.4 Home Office Equipment Allowance
+  eligible_location_status: ["Remote", "Hybrid"]
+  cap_usd: 500
+  required_category: "Facilities"
+
+relocation:          # §5.5 (misfiled) Relocation Allowance & badge access
+  cap_usd: 10000
+  required_category: "Facilities"
+  required_priority: "3 - Moderate"
+
+email_delegation:    # §2.2 (misfiled) Administrative Coverage for planned medical leave
+  required_category: "HRSD"
+  required_priority: "3 - Moderate"
+
+contact:             # FR-3.3 — mirrors the backend regex exactly
+  address_min_length: 5
+  phone_regex: '^\+?[\d\s\-()]{7,20}$'
+  email_regex: '^[^@\s]+@[^@\s]+\.[^@\s]+$'

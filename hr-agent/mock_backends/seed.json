@@ -1,0 +1,67 @@
+{
+  "_comment": "Synthetic personas for the MVP sandbox (SDD §7.1). No real employee data.",
+  "employees": {
+    "EMP001": {
+      "employee_id": "EMP001", "name": "Alex Tan", "email": "alex.tan@altostrat.com",
+      "department": "Engineering", "role": "Senior Software Engineer", "manager_id": "EMP004",
+      "hire_date": "2018-03-01", "location_status": "Hybrid", "office": "Singapore",
+      "personal_info": {"address": "12 Marina Boulevard, #20-01, Singapore 018982", "phone": "+65 9123 4567"},
+      "balances": {"Vacation": {"accrued": 21.0, "used": 16.0, "remaining": 5.0},
+                   "Sick": {"accrued": 14.0, "used": 2.0, "remaining": 12.0}}
+    },
+    "EMP002": {
+      "employee_id": "EMP002", "name": "Priya Nair", "email": "priya.nair@altostrat.com",
+      "department": "Finance", "role": "Financial Analyst", "manager_id": "EMP004",
+      "hire_date": "2023-06-12", "location_status": "On-site", "office": "Singapore",
+      "personal_info": {"address": "88 Tampines Avenue 5, #07-12, Singapore 529654", "phone": "+65 8234 5678"},
+      "balances": {"Vacation": {"accrued": 20.0, "used": 4.0, "remaining": 16.0},
+                   "Sick": {"accrued": 14.0, "used": 0.0, "remaining": 14.0}}
+    },
+    "EMP003": {
+      "employee_id": "EMP003", "name": "Lim Wei Ming", "email": "weiming.lim@altostrat.com",
+      "department": "Customer Success", "role": "Account Manager", "manager_id": "EMP004",
+      "hire_date": "2013-01-07", "location_status": "Remote", "office": "Singapore",
+      "personal_info": {"address": "5 Holland Grove Road, Singapore 278790", "phone": "+65 9345 6789"},
+      "balances": {"Vacation": {"accrued": 22.0, "used": 2.0, "remaining": 20.0},
+                   "Sick": {"accrued": 14.0, "used": 1.0, "remaining": 13.0}}
+    },
+    "EMP004": {
+      "employee_id": "EMP004", "name": "Sarah Lee", "email": "sarah.lee@altostrat.com",
+      "department": "Engineering", "role": "Engineering Director", "manager_id": "EMP900",
+      "hire_date": "2010-09-15", "location_status": "On-site", "office": "Singapore",
+      "personal_info": {"address": "20 Nassim Road, Singapore 258395", "phone": "+65 9456 7890"},
+      "balances": {"Vacation": {"accrued": 22.0, "used": 10.0, "remaining": 12.0},
+                   "Sick": {"accrued": 14.0, "used": 3.0, "remaining": 11.0}}
+    }
+  },
+  "feedback": {
+    "EMP001": [{"cycle": "GRAD 2025", "rating": "Significant Impact", "note": "PERFORMANCE DATA — must never reach the agent (B-5)"}]
+  },
+  "leave_requests": [
+    {"request_id": "LR-1001", "employee_id": "EMP001", "leave_type": "Vacation", "start_date": "2026-12-21",
+     "end_date": "2026-12-23", "days": 3.0, "status": "Approved"},
+    {"request_id": "LR-2001", "employee_id": "EMP004", "leave_type": "Vacation", "start_date": "2026-11-02",
+     "end_date": "2026-11-06", "days": 5.0, "status": "Approved"}
+  ],
+  "tickets": [
+    {"ticket_id": "INC0012345", "requestor_id": "EMP001", "category": "Network", "priority": "3 - Moderate",
+     "status": "New", "short_description": "VPN connection keeps dropping",
+     "description": "GlobalProtect disconnects every ~20 minutes when working from home.",
+     "assignee": "Network Operations", "created_at": "2026-09-20T10:15:00+08:00",
+     "comments": [{"author": "EMP001", "actor_type": "HUMAN", "text": "Happens on home Wi-Fi only.", "at": "2026-09-20T10:16:00+08:00"}]},
+    {"ticket_id": "INC0012346", "requestor_id": "EMP001", "category": "Hardware", "priority": "3 - Moderate",
+     "status": "In Progress", "short_description": "Laptop battery drains quickly",
+     "description": "Battery lasts under 2 hours.", "assignee": "Desktop Support",
+     "created_at": "2026-09-18T09:00:00+08:00",
+     "comments": [{"author": "Desktop Support", "actor_type": "HUMAN", "text": "Replacement battery ordered, ETA 3 days.", "at": "2026-09-19T14:00:00+08:00"}]},
+    {"ticket_id": "INC0012347", "requestor_id": "EMP001", "category": "Access", "priority": "4 - Low",
+     "status": "Resolved", "short_description": "Printer access on level 20",
+     "description": "Cannot print to L20-PRN-02.", "assignee": "Facilities IT",
+     "created_at": "2026-09-10T11:00:00+08:00",
+     "comments": [{"author": "Facilities IT", "actor_type": "HUMAN", "text": "Access granted, please retry.", "at": "2026-09-11T09:30:00+08:00"}]},
+    {"ticket_id": "INC0022222", "requestor_id": "EMP004", "category": "Software", "priority": "2 - High",
+     "status": "In Progress", "short_description": "Confidential: headcount planning tool access",
+     "description": "Director-only planning workbook.", "assignee": "App Support",
+     "created_at": "2026-09-21T08:00:00+08:00", "comments": []}
+  ]
+}

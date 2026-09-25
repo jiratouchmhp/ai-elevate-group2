@@ -1,0 +1,40 @@
+# Copy to terraform.tfvars (gitignored) and fill in. NO SECRETS HERE — the vendor PAT is
+# pushed to Secret Manager from your local .env by `deployment/deploy.sh push-secrets`.
+
+project_id  = "jm-01-project"
+region      = "asia-southeast1"
+environment = "dev"
+
+# --- Vendor MCP backends (WorkWeek + ServiceImmediately) ------------------------
+backend_base_url = "https://mock-saas.example.com" # TODO: real vendor host
+# Persona the shared team PAT (HR-Group2) resolves to — confirm with scripts/probe_backend.py
+demo_employee_id = "EMP-829"
+
+# --- Who can use the UI (IAP) ------------------------------------------------------
+iap_members = [
+  # "user:alex.tan@altostrat.com",
+  # "group:hr-pilot@altostrat.com",
+]
+# IAP email -> employee_id. With a single shared PAT, map everyone to demo_employee_id.
+persona_map = {
+  # "alex.tan@altostrat.com" = "EMP-829"
+}
+
+# --- Model (SDD D6 / OQ-5) -----------------------------------------------------------
+model_location = "global"
+default_model  = "gemini-3.8-flash"
+# agent_env_overrides = { HR_ORCHESTRATOR_MODEL = "...", HR_POLICY_MODEL = "..." }
+# Latency: per-agent thinking depth (MINIMAL|LOW|MEDIUM|HIGH|DEFAULT), default LOW
+# agent_env_overrides = { HR_POLICY_THINKING = "MEDIUM" }
+# Latency: keep warm instances to avoid cold starts (billed while idle)
+# agent_min_instances = 1
+# acl_min_instances   = 1
+
+guardrail_mode = "enforce" # "inspect" = Model Armor shadow mode (SDD §7.4 Phase 4)
+
+# --- Written by deploy.sh (do not edit by hand) ----------------------------------
+# rag_corpus  = "projects/.../locations/asia-southeast1/ragCorpora/..."
+# agent_image = "asia-southeast1-docker.pkg.dev/jm-01-project/hr-agent/hr-agent:<sha>"
+# acl_image   = "asia-southeast1-docker.pkg.dev/jm-01-project/hr-agent/hr-acl:<sha>"
+
+# vendor_default_location_status = "" # "Hybrid" only with HR sign-off

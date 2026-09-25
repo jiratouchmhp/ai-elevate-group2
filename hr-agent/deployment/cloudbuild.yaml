@@ -1,0 +1,24 @@
+# Builds both images on Cloud Build (no local Docker needed). Invoked by deploy.sh:
+#   gcloud builds submit . --config deployment/cloudbuild.yaml \
+#     --substitutions=_REGISTRY=<region>-docker.pkg.dev/<project>/hr-agent,_TAG=<git-sha>
+steps:
+  - id: hr-agent
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "Dockerfile", "--build-arg", "AGENT_VERSION=${_TAG}",
+           "-t", "${_REGISTRY}/hr-agent:${_TAG}", "."]
+    waitFor: ["-"]
+  - id: hr-acl
+    name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "acl_service/Dockerfile", "--build-arg", "AGENT_VERSION=${_TAG}",
+           "-t", "${_REGISTRY}/hr-acl:${_TAG}", "."]
+    waitFor: ["-"]
+images:
+  - "${_REGISTRY}/hr-agent:${_TAG}"
+  - "${_REGISTRY}/hr-acl:${_TAG}"
+substitutions:
+  _REGISTRY: ""
+  _TAG: "dev"
+options:
+  logging: CLOUD_LOGGING_ONLY # required with a user-managed build service account
+  machineType: E2_HIGHCPU_8
+timeout: 1200s

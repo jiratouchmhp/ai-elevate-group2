@@ -1,0 +1,5791 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "pol-fact-001",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How many days of outpatient sick leave do I get per year?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 14 days of paid outpatient sick leave per year at 100% of base salary (§19.2; summary §1.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.2",
+          "1.1"
+        ],
+        "must_include_any": [
+          [
+            "14"
+          ]
+        ],
+        "must_not_include": [
+          "21 days of sick",
+          "unlimited sick"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          616
+        ],
+        "quote": "up to 14 days of paid sick leave per year"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-002",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "how much notice do i need to give my manager if im calling in sick?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Tell your manager at least one hour before your normal start time; if they are unavailable, contact support (§19.4; §1.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.4",
+          "1.1",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "one hour",
+            "1 hour",
+            "1-hour",
+            "one-hour",
+            "an hour"
+          ]
+        ],
+        "must_not_include": [
+          "24 hours before"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          629
+        ],
+        "quote": "at least one hour before your normal start time"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-003",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How long can I take off for bereavement leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 4 weeks of paid bereavement leave per event (20 work days on a standard 5-day week) (§22.2; §3.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "22.2",
+          "3.1"
+        ],
+        "must_include_any": [
+          [
+            "4 weeks",
+            "four weeks",
+            "20 work days",
+            "20 days",
+            "20 working days"
+          ]
+        ],
+        "must_not_include": [
+          "2 weeks of paid bereavement",
+          "3 days of bereavement"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          744
+        ],
+        "quote": "up to 4 weeks of paid bereavement leave per event"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-004",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My dog died last night :( does bereavement leave cover that?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — paid bereavement leave does not apply to the loss of a pet; you can arrange vacation, unpaid time off or a temporary flexible schedule with your manager (§22.1; §3.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "22.1",
+          "3.1"
+        ],
+        "must_include_any": [
+          [
+            "vacation",
+            "unpaid",
+            "flexible"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          738
+        ],
+        "quote": "does not apply to the loss of a pet"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-005",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How many weeks of carer's leave can I take to look after a seriously ill family member?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 8 weeks of paid carer's leave per loved one per lifetime (§23.2; §3.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "23.2",
+          "3.2"
+        ],
+        "must_include_any": [
+          [
+            "8 weeks",
+            "eight weeks"
+          ],
+          [
+            "lifetime"
+          ]
+        ],
+        "must_not_include": [
+          "12 weeks of paid carer"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          773
+        ],
+        "quote": "up to 8 weeks of paid leave for each loved one"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-006",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the smallest chunk of carer's leave I can book?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Half a work day is the minimum duration (§23.2; §3.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "23.2",
+          "3.2"
+        ],
+        "must_include_any": [
+          [
+            "half",
+            "0.5"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          774
+        ],
+        "quote": "The minimum duration is half a work day"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-007",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Do I need to log my TOIL days in WorkWeek?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. There is no need to log time off in lieu in WorkWeek; agree the dates with your manager, and use TOIL before logging additional vacation days (§25.3; §1.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "25.3",
+          "1.4"
+        ],
+        "must_include_any": [
+          [
+            "no need",
+            "not need",
+            "don't need",
+            "do not need",
+            "not required",
+            "doesn't need",
+            "does not need",
+            "no requirement"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          852
+        ],
+        "quote": "there is no need to log time off in lieu in WorkWeek"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-008",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "When am I allowed to claim time off in lieu?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "When the business requires you to work on a public holiday or at the weekend; TOIL is at your manager's discretion (§25.2; §1.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "25.2",
+          "1.4"
+        ],
+        "must_include_any": [
+          [
+            "public holiday"
+          ],
+          [
+            "weekend"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          845
+        ],
+        "quote": "required to work on a public holiday or during the weekend"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-009",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How many weeks of maternity leave do Singapore employees get?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "24 weeks of paid maternity leave, effective 1 April 2026 (§27.2; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.2",
+          "2.1",
+          "21.4"
+        ],
+        "must_include_any": [
+          [
+            "24"
+          ]
+        ],
+        "must_not_include": [
+          "20 weeks of paid maternity",
+          "16 weeks of paid maternity"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          904
+        ],
+        "quote": "entitled to 24 weeks of paid maternity leave"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-010",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How long is baby bonding leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 18 weeks (90 work days) of paid baby bonding leave (§26.2; §2.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "26.2",
+          "2.2",
+          "21.4"
+        ],
+        "must_include_any": [
+          [
+            "18"
+          ]
+        ],
+        "must_not_include": [
+          "12 weeks of paid baby bonding",
+          "26 weeks of baby bonding"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          864
+        ],
+        "quote": "up to 18 weeks (90 work days) of paid leave per year"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-011",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Which leave codes do I pick in WorkWeek for maternity leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Two codes: 'Singapore Leaves > SG - Maternity Leave (First 8 weeks)' and 'Singapore Leaves > SG - Maternity Leave (80 working days)' (§27.4; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.4",
+          "2.1"
+        ],
+        "must_include_any": [
+          [
+            "First 8 weeks"
+          ],
+          [
+            "80 working days"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          920
+        ],
+        "quote": "using two separate codes"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-012",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is it ok to work on a confidential project from a coffee shop?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. Do not work on confidential or proprietary projects in public settings such as coffee shops or public libraries (§5.4; onboarding §30)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "prohibited",
+            "not allowed",
+            "not permitted",
+            "banned",
+            "cannot",
+            "can't",
+            "must not",
+            "not okay",
+            "not ok",
+            "do not work",
+            "don't work",
+            "should not",
+            "shouldn't"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          196
+        ],
+        "quote": "Do not work on Altostrat confidential or proprietary projects in public settings"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-013",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I vape on the company shuttle?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. Smoking, including e-cigarettes and vapes, is prohibited in the office and on company shuttles (§10.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "10.3",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "prohibited",
+            "not allowed",
+            "not permitted",
+            "banned",
+            "cannot",
+            "can't",
+            "must not",
+            "not okay",
+            "not ok"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          374
+        ],
+        "quote": "on company shuttles",
+        "supporting": [
+          {
+            "line": 375,
+            "quote": "e-cigarettes"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-014",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "A vendor hinted they'd 'speed things up' if we paid a small fee to a govt clerk. What do I do?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Facilitation/grease payments are prohibited; report a bribe offered or requested immediately to RCI via an ITSM case or the anonymous helpline (§13.6; §13.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "13.6",
+          "13.1",
+          "5.1"
+        ],
+        "must_include_any": [
+          [
+            "RCI",
+            "Risk, Compliance",
+            "helpline"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          469
+        ],
+        "quote": "you are required to report it immediately"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-015",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How often do we get paid?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Monthly, by direct deposit, by the last working day of the month (§31.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "31.1"
+        ],
+        "must_include_any": [
+          [
+            "monthly",
+            "every month",
+            "once a month"
+          ],
+          [
+            "last working day"
+          ]
+        ],
+        "must_not_include": [
+          "bi-weekly",
+          "fortnightly"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          1103
+        ],
+        "quote": "Salaries are paid on a monthly basis"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-016",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How do I claim back what I paid at the dentist?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Get an itemised receipt and MC/diagnosis note, submit via the benefits claims portal on the Company Website within 30 days of treatment; reimbursement comes with payroll (§32.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "32.2"
+        ],
+        "must_include_any": [
+          [
+            "portal"
+          ],
+          [
+            "30 days",
+            "30-day",
+            "thirty days"
+          ]
+        ],
+        "must_not_include": [
+          "Concur"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          1123
+        ],
+        "quote": "Log into the benefits claims portal"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-017",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How do i put in a flexible work request?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Submit it formally in writing — by email to your manager or by opening an HR case in ITSM (§17.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "17.3"
+        ],
+        "must_include_any": [
+          [
+            "writing",
+            "written",
+            "email"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          565
+        ],
+        "quote": "submitted formally in writing via email to your Manager"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-018",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Are contractors covered by the sick leave policy?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. Temps, vendors and contractors are not eligible and should contact their direct employer (§19.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.1"
+        ],
+        "must_include_any": [
+          [
+            "not eligible",
+            "aren't eligible",
+            "are not covered",
+            "not covered",
+            "aren't covered",
+            "ineligible"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          611
+        ],
+        "quote": "Temps, vendors, and contractors are not eligible for this policy"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-019",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm the tech lead on a project — can I date one of the engineers on it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. Romantic or physical relationships are prohibited where one person supervises or exercises authority over the other, including Technical Lead and cross-functional project roles (§8.2; §5.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "8.2",
+          "5.3",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "prohibited",
+            "not allowed",
+            "not permitted",
+            "banned",
+            "cannot",
+            "can't",
+            "must not",
+            "not okay",
+            "not ok",
+            "not permitted"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          302
+        ],
+        "quote": "Technical Lead roles where one individual exercises supervision or authority",
+        "supporting": [
+          {
+            "line": 189,
+            "quote": "where one individual is in a position to supervise or exercise authority over the other"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-020",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I take vacation in half days?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes, vacation can be taken in half- or full-day increments (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "half"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          674
+        ],
+        "quote": "You can take vacation in half- or full-days"
+      }
+    },
+    {
+      "eval_case_id": "pol-fact-021",
+      "category": "policy.simple_factual",
+      "uc": "UC-1.1",
+      "persona": "EMP004",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Where should I report a workplace injury?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Report it immediately to your manager and the Workplace Facilities team via the Company Website; WICA compensation applies (§34.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "34.3"
+        ],
+        "must_include_any": [
+          [
+            "manager"
+          ],
+          [
+            "Facilities"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          1153
+        ],
+        "quote": "must be reported immediately to your manager and the Workplace Facilities team"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-001",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Vacation entitlement after 8 years' service?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "21 days per year (7-10 years of service tier) (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "21"
+          ]
+        ],
+        "must_not_include": [
+          "25 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          671
+        ],
+        "quote": "7 to 10 years of service: 21 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-002",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I've been here 3 years, how much annual leave do I get?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "20 days per year (1-6 years of service tier) (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "20"
+          ]
+        ],
+        "must_not_include": [
+          "14 days of vacation",
+          "18 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          670
+        ],
+        "quote": "1 to 6 years of service: 20 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-003",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP004",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "whats the vacation allowance for someone with 12 yrs of service?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "22 days per year (11+ years tier) (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "22"
+          ]
+        ],
+        "must_not_include": [
+          "25 days",
+          "24 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          672
+        ],
+        "quote": "11 years and above of service: 22 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-004",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I just hit my 7-year anniversary. Does my vacation go up?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — at 7-10 years of service you get 21 days per year, up from 20 (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "21"
+          ]
+        ],
+        "must_not_include": [
+          "25 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          671
+        ],
+        "quote": "7 to 10 years of service: 21 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-005",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My kid is 5. How many days of childcare leave can I take?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 6 days of paid childcare leave per year for children under 7 (§24.2; §1.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "24.2",
+          "1.3"
+        ],
+        "must_include_any": [
+          [
+            "6",
+            "six"
+          ]
+        ],
+        "must_not_include": [
+          "7 days",
+          "10 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          811
+        ],
+        "quote": "You can take up to 6 days of paid leave per year"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-006",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My only child is 9 years old — childcare leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 2 days of paid childcare leave per year when your youngest child is 7-12 (§24.2; §1.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "24.2",
+          "1.3"
+        ],
+        "must_include_any": [
+          [
+            "2 days",
+            "two days",
+            "2 paid",
+            "2 work",
+            "2 full"
+          ]
+        ],
+        "must_not_include": [
+          "6 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          812
+        ],
+        "quote": "You can take up to 2 days of paid leave per year"
+      },
+      "notes": "must_not_include '6 days' may false-positive if the agent quotes the whole tier table; judge should confirm."
+    },
+    {
+      "eval_case_id": "pol-tier-007",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I have a 4 year old and a 10 year old. How many childcare days is that?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "6 days per year in total — children in both age groups get 6 days, not 6 + 2 (§24.2; §1.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "24.2",
+          "1.3"
+        ],
+        "must_include_any": [
+          [
+            "6",
+            "six"
+          ]
+        ],
+        "must_not_include": [
+          "8 days"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          813
+        ],
+        "quote": "Children in both age groups"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-008",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My daughter just turned 12. Can I still use childcare leave for her?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — childcare leave is for parents with children under the age of 12 (§24.2; §1.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "24.2",
+          "1.3"
+        ],
+        "must_include_any": [
+          [
+            "under 12",
+            "under the age of 12",
+            "under age 12",
+            "below 12",
+            "younger than 12"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          809
+        ],
+        "quote": "parents with children under the age of 12"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-009",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I want to send a client a gift worth about US$180. Do I need any approval?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — over US$100 up to US$250 per person needs written pre-approval from your manager (§14.4; §5.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "14.4",
+          "5.2"
+        ],
+        "must_include_any": [
+          [
+            "manager"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          495
+        ],
+        "quote": "Requires written pre-approval from the employee's manager"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-010",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Taking a (non-government) customer to dinner at about US$400 a head — who signs off?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Over US$250 up to US$500 per person requires written pre-approval from your director (or country manager if no director in-country) (§14.4; §5.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "14.4",
+          "5.2"
+        ],
+        "must_include_any": [
+          [
+            "director"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          496
+        ],
+        "quote": "written pre-approval from the employee's director"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-011",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Who has to approve a business gift over US$500 per person for a commercial partner?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Your VP must give written pre-approval (§14.4; §5.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "14.4",
+          "5.2",
+          "4.4"
+        ],
+        "must_include_any": [
+          [
+            "VP",
+            "vice president"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          497
+        ],
+        "quote": "Requires written pre-approval from the employee's VP"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-012",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I want to give a non-US government official a US$80 gift, but I already gave him about US$150 of stuff 4 months ago. Do I need pre-approval?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes. Pre-approval from RCI is needed if value exceeds US$100 OR cumulative courtesies to that official exceed US$200 within a rolling 6-month period — US$230 exceeds the cumulative limit (§13.3; §5.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "13.3",
+          "5.1"
+        ],
+        "must_include_any": [
+          [
+            "200"
+          ],
+          [
+            "6-month",
+            "6 month",
+            "six month",
+            "six-month"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          171
+        ],
+        "quote": "or if cumulative courtesies to that official exceed US"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-013",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "One of my out-of-pocket expense receipts is 75 days old. Whose approval do I need?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Claims older than 60 days need Director approval (VP after 90 days; not reimbursable after one year) (§4.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.2"
+        ],
+        "must_include_any": [
+          [
+            "Director"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          140
+        ],
+        "quote": "Out-of-pocket claims older than 60 days require"
+      }
+    },
+    {
+      "eval_case_id": "pol-tier-014",
+      "category": "policy.tiered",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I buy a US government official a coffee during a meeting?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "For U.S. government officials, written RCI pre-approval is required before offering anything of value of any amount, except non-alcoholic drinks at a meeting hosted at an Altostrat office (§13.3; §5.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "13.3",
+          "5.1"
+        ],
+        "must_include_any": [
+          [
+            "pre-approval",
+            "pre-approve",
+            "preapproval",
+            "approval"
+          ],
+          [
+            "non-alcoholic"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          170
+        ],
+        "quote": "except non-alcoholic drinks at an Altostrat office meeting"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-001",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the meal cap on business travel?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "US$120 (or equivalent) per employee per day; not a per diem — every meal must be itemised with receipts (§4.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.4",
+          "4.1",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "120"
+          ]
+        ],
+        "must_not_include": [
+          "US$150",
+          "$100 per day"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          152
+        ],
+        "quote": "(or equivalent) per employee per day"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-002",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm staying at my cousin's place instead of a hotel on a work trip. Can I expense a thank-you gift?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes, a host gift of up to US$50 per day with valid receipts; cash or gift-card gifts are prohibited (§4.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.3"
+        ],
+        "must_include_any": [
+          [
+            "50"
+          ]
+        ],
+        "must_not_include": [
+          "$100 per day"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          147
+        ],
+        "quote": "allows you to buy a host gift of"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-003",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "When am I required to use the corporate card?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "If you incur more than $10,000 of business expenses per quarter or any single transaction over $5,000 (§4.2; onboarding §30)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.2",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "10,000",
+            "10000",
+            "10k"
+          ],
+          [
+            "5,000",
+            "5000",
+            "5k"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          137
+        ],
+        "quote": "must use their Company Card for their travel spend"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-004",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP004",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Customer entertainment event coming up, around $550 per head. Anything special I need?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Events of US$500 or more per head need written pre-event VP approval attached to the Concur report (§4.4; also §14.4/§5.2 over US$500 → VP)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.4",
+          "14.4",
+          "5.2"
+        ],
+        "must_include_any": [
+          [
+            "VP",
+            "vice president"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          156
+        ],
+        "quote": "requires written, pre-event approval from your VP"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-005",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How much is the home office equipment allowance?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "US$500 for home office equipment (including monitors) for employees with an approved Remote or Hybrid status (§5.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4"
+        ],
+        "must_include_any": [
+          [
+            "500"
+          ]
+        ],
+        "must_not_include": [
+          "$1,000",
+          "$1000",
+          "$300"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          211
+        ],
+        "quote": "USD allowance for home office equipment"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-006",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How many days of hospitalisation leave are there?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "An additional 46 work days of hospitalisation leave per year, separate from outpatient sick leave (§19.3; §1.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.3",
+          "1.1"
+        ],
+        "must_include_any": [
+          [
+            "46"
+          ]
+        ],
+        "must_not_include": [
+          "60 days",
+          "30 days of hospital"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          618
+        ],
+        "quote": "additional 46 work days of hospitalization leave"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-007",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How long can I take unpaid time off for?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 30 calendar days of unpaid time off with manager approval; longer becomes personal leave (§18.2; §3.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "18.2",
+          "3.3",
+          "21.5"
+        ],
+        "must_include_any": [
+          [
+            "30"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          577
+        ],
+        "quote": "up to 30 calendar days of unpaid time off"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-008",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I work 12-hour shifts. How many vacation days do I need to book for one shift?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "1.5 vacation days (a vacation day is 8 hours) (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "1.5",
+            "one and a half",
+            "1½"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          675
+        ],
+        "quote": "a 12-hour shift requires taking 1.5 vacation days"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-009",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How long is ramp-back time and how much do I have to work during it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 2 weeks; you work at least 50% of your normal weekly hours and are paid 100% salary (§28.2; §28.3; §2.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "28.2",
+          "28.3",
+          "2.3",
+          "21.4"
+        ],
+        "must_include_any": [
+          [
+            "2 weeks",
+            "two weeks"
+          ],
+          [
+            "50%",
+            "50 %",
+            "half"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          950
+        ],
+        "quote": "minimum of 50% of your normal weekly hours each week"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-010",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How often can I exchange gifts with the same (non-government) client?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Not more than twice in any 3-month period (moderate joint entertainment may exceed this) (§14.3; §5.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "14.3",
+          "5.2"
+        ],
+        "must_include_any": [
+          [
+            "twice",
+            "two times",
+            "2 times"
+          ],
+          [
+            "3-month",
+            "3 month",
+            "three month",
+            "three-month",
+            "3 months"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          488
+        ],
+        "quote": "more than twice in any 3-month period"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-011",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Does a US$90 gift to a commercial client need pre-approval?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — business courtesies under US$100 per person need no pre-approval (§14.4; §5.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "14.4",
+          "5.2"
+        ],
+        "must_include_any": [
+          [
+            "100"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          494
+        ],
+        "quote": "No pre-approval is required"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-012",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "A government agency wants to give me a gift worth about US$150. Can I just accept it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — receiving anything of value over US$100 from a government entity/official requires written RCI pre-approval first (§13.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "13.3"
+        ],
+        "must_include_any": [
+          [
+            "100"
+          ],
+          [
+            "RCI",
+            "Risk, Compliance",
+            "pre-approval"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          451
+        ],
+        "quote": "Before receiving anything of value exceeding US"
+      }
+    },
+    {
+      "eval_case_id": "pol-num-013",
+      "category": "policy.numeric_limit",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How much of my maternity leave has to be taken in one go?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "The first 8 weeks (56 days) must be consecutive; the remaining 16 weeks (80 working days) can be taken flexibly within 12 months of the birth (§27.4; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.4",
+          "2.1"
+        ],
+        "must_include_any": [
+          [
+            "8 weeks",
+            "56 days",
+            "eight weeks"
+          ],
+          [
+            "80",
+            "16 weeks"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          918
+        ],
+        "quote": "You must take the first 8 weeks (56 days) consecutively"
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-001",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Am I eligible for a monitor for home, and how do I order it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — you are Hybrid, so you're eligible for the US$500 home office equipment allowance (incl. monitors). Submit the order via a 'Facilities' category ticket; it ships to your verified remote address (§5.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent",
+          "workweek_agent"
+        ],
+        "route_none": [],
+        "tools_all": [
+          "search_policy",
+          "get_profile"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4"
+        ],
+        "must_include_any": [
+          [
+            "500"
+          ],
+          [
+            "Facilities"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          211
+        ],
+        "quote": "shipped directly to the employee's verified remote shipping address"
+      },
+      "notes": "Handbook defect: §5.4 line 210 says hardware via ITSM case + manager approval; line 211 says Facilities ticket; §33.1 says Company Website; onboarding says ITSM only."
+    },
+    {
+      "eval_case_id": "pol-mhop-002",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I claim the home office allowance for a second monitor?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — you are On-site; the US$500 home office allowance is only for employees with an approved Remote or Hybrid status (§5.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent",
+          "workweek_agent"
+        ],
+        "route_none": [],
+        "tools_all": [
+          "search_policy",
+          "get_profile"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4"
+        ],
+        "must_include_any": [
+          [
+            "On-site",
+            "onsite",
+            "on site"
+          ],
+          [
+            "Remote",
+            "Hybrid"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          211
+        ],
+        "quote": "Employees with an approved 'Remote' or 'Hybrid' location status are eligible"
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-003",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Do I qualify for the home office equipment allowance and where would the stuff get shipped?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — you are Remote, so you're eligible for US$500; order via a Facilities ticket and it ships to your verified remote shipping address (§5.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent",
+          "workweek_agent"
+        ],
+        "route_none": [],
+        "tools_all": [
+          "search_policy",
+          "get_profile"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4"
+        ],
+        "must_include_any": [
+          [
+            "500"
+          ],
+          [
+            "Facilities"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          211
+        ],
+        "quote": "shipped directly to the employee's verified remote shipping address"
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-004",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Based on how long I've been here, how many vacation days should I be getting each year?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "You joined on 1 Mar 2018 (~8.5 years), which is the 7-10 year tier: 21 days per year (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent",
+          "workweek_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy",
+          "get_profile"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "21"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          671
+        ],
+        "quote": "7 to 10 years of service: 21 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-005",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "what's my yearly vacation entitlement given my tenure?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "You joined in January 2013 (13+ years), so the 11+ year tier applies: 22 days per year (§20.2; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent",
+          "workweek_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy",
+          "get_profile"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.2",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "22"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          672
+        ],
+        "quote": "11 years and above of service: 22 days"
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-006",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm transferring to the London office next year. Is there help with moving costs, and what happens to my unused sick leave and vacation?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Relocation allowance capped at US$10,000 (§5.5); request destination badge pre-configuration via a Facilities ticket (Priority 3 - Moderate). Sick/hospitalisation balances do not transfer and are not paid out (§19.8). Unused vacation can be paid out on a country transfer (§20.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.5",
+          "19.8",
+          "20.3",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "10,000",
+            "10000",
+            "10k"
+          ],
+          [
+            "not transfer",
+            "won't transfer",
+            "do not transfer",
+            "does not transfer",
+            "will not transfer",
+            "don't transfer",
+            "doesn't transfer",
+            "not be transferred",
+            "not carried",
+            "won't carry"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          220
+        ],
+        "quote": "relocation allowance capped at",
+        "supporting": [
+          {
+            "line": 656,
+            "quote": "your sick leave and hospitalization leave balances will not transfer"
+          },
+          {
+            "line": 680,
+            "quote": "Exceptions are only made for employees who are transferring to another country"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-007",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Heading to a client in Jakarta next month — what's the daily meal limit and how early do I need to book flights and hotel?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Meals capped at US$120 per employee per day with receipts (§4.4); air and hotel must be booked at least 3 weeks in advance (§4.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.4",
+          "4.1",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "120"
+          ],
+          [
+            "3 weeks",
+            "three weeks",
+            "21 days"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          152
+        ],
+        "quote": "(or equivalent) per employee per day",
+        "supporting": [
+          {
+            "line": 133,
+            "quote": "at least 3 weeks in advance"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-008",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My mum is seriously ill. How much carer's leave can I get, and if I need more time after that what are my options?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 8 weeks paid carer's leave per loved one per lifetime (§23.2). Beyond that: up to 30 calendar days unpaid time off (§18.2), or up to 92 calendar days unpaid compassionate leave with manager/director approval (§18.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "23.2",
+          "3.2",
+          "18.2",
+          "18.4",
+          "3.3"
+        ],
+        "must_include_any": [
+          [
+            "8 weeks",
+            "eight weeks"
+          ],
+          [
+            "30",
+            "92"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          773
+        ],
+        "quote": "up to 8 weeks of paid leave for each loved one",
+        "supporting": [
+          {
+            "line": 577,
+            "quote": "up to 30 calendar days of unpaid time off"
+          },
+          {
+            "line": 591,
+            "quote": "92 calendar days of continuous unpaid compassionate leave"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-009",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm on 12 weeks of baby bonding leave. Do I get ramp-back time when I come back, and how do I log it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — at least 10 consecutive weeks qualifies you for up to 2 weeks ramp-back (≥50% hours, 100% pay) immediately on return. Salaried: in WorkWeek enter hours not worked as type 'Ramp Back Time', reason 'Baby Bonding Leave' (§28.1; §28.4; §2.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "28.1",
+          "28.4",
+          "2.3",
+          "26.6",
+          "21.4"
+        ],
+        "must_include_any": [
+          [
+            "10"
+          ],
+          [
+            "Ramp Back Time"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          943
+        ],
+        "quote": "at least 10 consecutive weeks of maternity, adoption, parental, and/or baby bonding time",
+        "supporting": [
+          {
+            "line": 962,
+            "quote": "choose \"Ramp Back Time\" under the type"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-mhop-010",
+      "category": "policy.multi_hop",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I've been sick since Monday, 3 days now. What paperwork do I need and by when? Also does my gym reimbursement stop while I'm on sick leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Sick more than two work days → submit an MC from a registered medical practitioner via WorkWeek within 48 hours (§19.4). Gym and internet reimbursement continue as normal during sick leave (§19.6)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.4",
+          "19.6",
+          "1.1"
+        ],
+        "must_include_any": [
+          [
+            "48"
+          ],
+          [
+            "continue"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          630
+        ],
+        "quote": "This certificate must be submitted within 48 hours",
+        "supporting": [
+          {
+            "line": 643,
+            "quote": "gym reimbursement"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-edge-001",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My husband is giving me his share of shared parental leave. How long will my total maternity leave be?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "If your spouse donates 9 or 10 weeks of SPL (Singapore-citizen child born on/after 1 Apr 2026), maternity leave increases from 24 to 25 or 26 weeks; submit LifeSG SPL proof within 4 weeks of birth (§27.2; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.2",
+          "2.1",
+          "26.3"
+        ],
+        "must_include_any": [
+          [
+            "25"
+          ],
+          [
+            "26"
+          ]
+        ],
+        "must_not_include": [
+          "34 weeks",
+          "29 weeks",
+          "30 weeks"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          907
+        ],
+        "quote": "your leave increases to 25 or 26 weeks"
+      }
+    },
+    {
+      "eval_case_id": "pol-edge-002",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "If I give my SPL weeks to my husband, does my Altostrat maternity leave get reduced?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — it remains 24 weeks, because the company benefit already exceeds statutory limits (§27.2; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.2",
+          "2.1",
+          "26.3"
+        ],
+        "must_include_any": [
+          [
+            "24"
+          ]
+        ],
+        "must_not_include": [
+          "19 weeks",
+          "14 weeks"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          907
+        ],
+        "quote": "your maternity leave will remain 24 weeks"
+      }
+    },
+    {
+      "eval_case_id": "pol-edge-003",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm transferring to the London HQ. Is there any relocation allowance?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — up to US$10,000 to cover moving and transition expenses; also request destination building badge pre-configuration via a Facilities ticket (Priority 3 - Moderate) before arrival (§5.5, 'Relocation Allowance')."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.5"
+        ],
+        "must_include_any": [
+          [
+            "10,000",
+            "10000",
+            "10k"
+          ]
+        ],
+        "must_not_include": [
+          "Community Guidelines"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          220
+        ],
+        "quote": "relocation allowance capped at"
+      },
+      "notes": "C-1: content is misfiled under '§5.5 Community Guidelines (Conversational Boundaries)'. Citation must be meaningful (FR-5.3) — must not present it as 'Community Guidelines'."
+    },
+    {
+      "eval_case_id": "pol-edge-004",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm having day surgery next week. Does my MC have to come from a doctor employed by an MOM-approved hospital?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Per the detailed §19.3: for day surgery the certificate must be from a registered medical practitioner who can admit patients to hospitals; the approved-hospital employment requirement applies only to reasons (3) and (4). Contact support to use hospitalisation leave. (The §1.1 summary states the approved-hospital rule more broadly.)"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.3"
+        ],
+        "must_include_any": [
+          [
+            "admit"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          624
+        ],
+        "quote": "For reasons (3) and (4) above, the certifying medical practitioner must be employed by a hospital approved by the Minister for Manpower"
+      },
+      "notes": "CONFLICT §1.1 (line 18: all hospitalisation leave certified by practitioner employed by an approved hospital) vs §19.3 (only reasons 3/4). Authoritative: §19.3."
+    },
+    {
+      "eval_case_id": "pol-edge-005",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I've used up all 14 sick days. Does hospitalisation leave just kick in automatically after that?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No. Hospitalisation leave (46 work days) is not an automatic extension of outpatient sick leave; it requires meeting a listed criterion (inpatient/day surgery, quarantine, certified need for hospitalisation, post-discharge rest), contacting support, and is discretionary case-by-case (§19.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "19.3"
+        ],
+        "must_include_any": [
+          [
+            "not automatic",
+            "isn't automatic",
+            "not an automatic",
+            "does not automatically",
+            "doesn't automatically",
+            "won't automatically",
+            "not automatically",
+            "isn't an automatic"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          625
+        ],
+        "quote": "Paid hospitalization leave is not an automatic extension of paid outpatient sick leave"
+      },
+      "notes": "CONFLICT: §1.1 line 18 'Employees can utilize an additional 46 work days' reads as an entitlement; §19.3 says discretionary, case-by-case. Authoritative: §19.3."
+    },
+    {
+      "eval_case_id": "pol-edge-006",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I've only been at Altostrat 18 months. Am I automatically ruled out from taking personal leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Not automatically. Per §18.3, approval is case-by-case; ≥2 years' tenure, a 'Significant Impact'+ rating and <10 vacation days left are factors managers/directors may consider. Needs manager and director approval and 30 days' notice. (§3.3 summary words these as prerequisites.)"
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "18.3"
+        ],
+        "must_include_any": [
+          [
+            "case-by-case",
+            "case by case",
+            "discretion",
+            "factor",
+            "consider"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          586
+        ],
+        "quote": "Managers and directors may consider factors such as having at least 2 years of tenure"
+      },
+      "notes": "CONFLICT: §3.3 line 121 'You typically need at least 2 years of tenure' (prerequisite) vs §18.3 discretionary factors. Authoritative: §18.3."
+    },
+    {
+      "eval_case_id": "pol-edge-007",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the longest unpaid personal leave I can take? I read somewhere it has to be under 90 days."
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 92 calendar days of continuous unpaid personal leave (inclusive of unpaid time off already taken), with manager and director approval (§18.3; §3.3). The §21.5 overview's '<90 days' conflicts with the detailed policy."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "18.3",
+          "3.3"
+        ],
+        "must_include_any": [
+          [
+            "92"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          583
+        ],
+        "quote": "up to 92 calendar days of continuous unpaid personal leave"
+      },
+      "notes": "CONFLICT: §21.5 line 731 'at least 31 but less than 90 calendar days' vs §18.3/§3.3 up to 92. Authoritative: §18.3."
+    },
+    {
+      "eval_case_id": "pol-edge-008",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My wife and I both work at Altostrat. If I give her some of my SPL weeks, does my baby bonding leave get cut?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "The handbook is inconsistent: §27.2 (and §2.2) say an employee father allocating 9-10 weeks of SPL to his partner must reduce BBL to 16 or 17 weeks (subject to audit), while §26.3 says BBL remains 18 weeks. Flag the conflict and confirm with HR."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.2",
+          "2.2",
+          "26.3"
+        ],
+        "must_include_any": [
+          [
+            "16",
+            "17"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          908
+        ],
+        "quote": "will need to reduce their Baby Bonding Leave to 16 or 17 weeks",
+        "supporting": [
+          {
+            "line": 873,
+            "quote": "the father's Baby Bonding Leave remains 18 weeks"
+          }
+        ]
+      },
+      "notes": "Genuine CONFLICT between two detailed sections (§27.2/§2.2 vs §26.3). Ideal answer surfaces the discrepancy and escalates rather than silently picking one."
+    },
+    {
+      "eval_case_id": "pol-edge-009",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What is the policy for giving my manager access to my email while I'm on medical leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "For planned medical leave beyond a standard work week, open an administrative ticket (Category 'HRSD', Priority '3 - Moderate') to request temporary email delegation to your direct manager (§2.2 'Administrative Coverage' bullet — misfiled under Baby Bonding Leave)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "2.2"
+        ],
+        "must_include_any": [
+          [
+            "HRSD"
+          ],
+          [
+            "3 - Moderate",
+            "Moderate"
+          ]
+        ],
+        "must_not_include": [
+          "1 - Critical",
+          "2 - High",
+          "4 - Low"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          86
+        ],
+        "quote": "request a temporary email delegation to their direct manager"
+      },
+      "notes": "SDD Appendix C Q-6 says there is NO policy basis; the current corpus DOES contain one at line 86 (misfiled in §2.2 Baby Bonding Leave; ingest re-titles it 'Planned Medical Leave: Email Delegation to Manager'). Classified as edge_case/answer rather than unanswerable because the answer is verifiable in the handbook. Flip to refuse_escalate only if HR confirms line 86 is not approved policy."
+    },
+    {
+      "eval_case_id": "pol-edge-010",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I'm an intern, 5 months in, and pregnant. How much maternity leave do I get, and can my husband's SPL add to it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Interns with ≥3 months' continuous service get 16 weeks of statutory maternity leave, taken consecutively; if your spouse donates SPL it can be extended up to 26 weeks (§27.3; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.3",
+          "2.1"
+        ],
+        "must_include_any": [
+          [
+            "16"
+          ],
+          [
+            "26"
+          ]
+        ],
+        "must_not_include": [
+          "42 weeks"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          914
+        ],
+        "quote": "entitled to 16 weeks of statutory maternity leave"
+      },
+      "notes": "Defect: §27.3 says 'extend ... by up to 26 weeks' (would imply 42) while §2.1 says 'up to 26 weeks'."
+    },
+    {
+      "eval_case_id": "pol-edge-011",
+      "category": "policy.edge_case",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "We're expecting twins! Do I get two lots of baby bonding leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — even with multiple children at once, only one 18-week period of baby bonding leave can be taken (§26.2; §2.2), and only one ramp-back period (§28.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "26.2",
+          "2.2",
+          "28.1"
+        ],
+        "must_include_any": [
+          [
+            "18"
+          ]
+        ],
+        "must_not_include": [
+          "36 weeks"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          865
+        ],
+        "quote": "you can take only one 18-week period of bonding leave"
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-001",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is bereavement leave a Singapore-only policy?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — bereavement leave is a Global policy: up to 4 weeks paid per event (§22; §3.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "22.1",
+          "22.2",
+          "3.1"
+        ],
+        "must_include_any": [
+          [
+            "global",
+            "globally",
+            "all countries",
+            "company-wide"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          100
+        ],
+        "quote": "Bereavement Leave (Global)",
+        "supporting": [
+          {
+            "line": 733,
+            "quote": "BEREAVEMENT LEAVE (GLOBAL)"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-002",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is childcare leave available in every country or just Singapore?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "It's a Singapore policy for Singapore-based employees, apprentices and interns; if you transfer countries check the benefits portal for new entitlements (§24.1; §24.5; §1.3)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "24.1",
+          "24.5",
+          "1.3",
+          "24.2"
+        ],
+        "must_include_any": [
+          [
+            "Singapore",
+            "SG"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          805
+        ],
+        "quote": "Singapore-based employees, apprentices, and interns are eligible for childcare leave"
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-003",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is carer's leave the same everywhere or does it depend on the office?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Carer's leave is a Global policy: up to 8 weeks paid per loved one per lifetime (§23; §3.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "23.1",
+          "23.2",
+          "3.2"
+        ],
+        "must_include_any": [
+          [
+            "global",
+            "globally",
+            "company-wide"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          763
+        ],
+        "quote": "CARER'S LEAVE (GLOBAL)",
+        "supporting": [
+          {
+            "line": 108,
+            "quote": "Carer's Leave (Global)"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-004",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Does the 24-week maternity leave apply to colleagues outside Singapore too?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "The handbook's maternity policy is Singapore-specific (Singapore-based employees and interns) (§27.1). The global overview says ~24 weeks, but exact length and pay vary by country (§21.4; §21.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.1",
+          "21.1",
+          "21.4",
+          "2.1"
+        ],
+        "must_include_any": [
+          [
+            "Singapore",
+            "SG"
+          ],
+          [
+            "vary",
+            "varies",
+            "different",
+            "local",
+            "depends",
+            "depend"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          898
+        ],
+        "quote": "Singapore-based employees and interns are eligible",
+        "supporting": [
+          {
+            "line": 707,
+            "quote": "The exact length and payment attached to each leave may vary by country"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-005",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is the 3-days-in-office hybrid setup the rule everywhere? I might move to another country."
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Hybrid (about 3 days in office, 2 away, or fully remote) is a global option, but local mandatory requirements in some locations override the global policy (§5.4)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "5.4"
+        ],
+        "must_include_any": [
+          [
+            "local"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          200
+        ],
+        "quote": "local mandatory requirements that apply in certain locations will override the global policy content"
+      }
+    },
+    {
+      "eval_case_id": "pol-jur-006",
+      "category": "policy.jurisdiction",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is baby bonding leave only for Singapore staff?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — it's a Global policy for full-time, part-time and fixed-term employees worldwide, inclusive of local statutory leave such as paternity leave (§26.1; §26.2; §2.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "26.1",
+          "26.2",
+          "2.2"
+        ],
+        "must_include_any": [
+          [
+            "global",
+            "globally",
+            "worldwide"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          859
+        ],
+        "quote": "fixed-term global employees are eligible"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-001",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "When do my carried-over vacation days from 2025 expire?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Carried-over days must be used by 31 December of the following year — i.e. by 31 Dec 2026 — or they are forfeited (§20.3; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.3",
+          "1.2"
+        ],
+        "must_include_any": [
+          [
+            "31 Dec",
+            "December 31",
+            "31st December",
+            "Dec 31",
+            "end of 2026",
+            "31/12",
+            "2026-12-31",
+            "end of this year",
+            "end of the year"
+          ]
+        ],
+        "must_not_include": [
+          "2027"
+        ],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          39
+        ],
+        "quote": "Carried-over days must be used by December 31 of the following year",
+        "supporting": [
+          {
+            "line": 679,
+            "quote": "Carried-over vacation days must be used before the end of the following year"
+          }
+        ]
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-002",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Today's Oct 5. Can I still get vacation approved starting Oct 15?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Policy requires manager approval at least 15 days in advance; 15 Oct is only 10 days away, so it doesn't meet the notice rule (earliest compliant start ~20 Oct) (§20.4; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.4",
+          "1.2",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "15"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          685
+        ],
+        "quote": "at least 15 days in advance"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-003",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "I still have a floating holiday from this year. Can I use it in January?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — floating holidays must be used before the calendar year ends and are not carried forward (§20.6; §1.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "20.6",
+          "1.2",
+          "30"
+        ],
+        "must_include_any": [
+          [
+            "calendar year",
+            "end of the year",
+            "year ends",
+            "31 December",
+            "December 31",
+            "not carried",
+            "not be carried",
+            "don't carry",
+            "do not carry"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          700
+        ],
+        "quote": "Floating holidays will not be carried forward to the following year"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-004",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My dad passed away in March. Can I still take bereavement leave in November?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Yes — bereavement leave must be taken within 12 months of the death, so November is within the window (§22.2; §3.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "22.2",
+          "3.1"
+        ],
+        "must_include_any": [
+          [
+            "12 months",
+            "twelve months",
+            "one year",
+            "a year"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          745
+        ],
+        "quote": "Bereavement leave must be taken within 12 months of a death"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-005",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Our baby was born on 1 Feb 2026. Until when can I use my baby bonding leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "All 18 weeks must be used within 12 months of the birth — by about 1 Feb 2027 — or the remainder is lost (§26.2; §2.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "26.2",
+          "2.2"
+        ],
+        "must_include_any": [
+          [
+            "12 months",
+            "twelve months",
+            "one year"
+          ],
+          [
+            "2027"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          866
+        ],
+        "quote": "You must use all 18 weeks of leave within 12 months of that date"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-006",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "My due date is 20 Dec 2026. What's the earliest I can start maternity leave?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "Up to 28 days before the expected due date — i.e. from 22 Nov 2026 (§27.4; §2.1)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "27.4",
+          "2.1"
+        ],
+        "must_include_any": [
+          [
+            "28"
+          ],
+          [
+            "22 Nov",
+            "November 22",
+            "22nd Nov",
+            "22/11",
+            "2026-11-22",
+            "Nov 22"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          918
+        ],
+        "quote": "The earliest you can start your leave is 28 days before your expected due date"
+      }
+    },
+    {
+      "eval_case_id": "pol-temp-007",
+      "category": "policy.temporal",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Found an old taxi receipt from about 18 months ago — can I still claim it?"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "No — expense claims older than one year are non-reimbursable (§4.2)."
+            }
+          ]
+        }
+      },
+      "expected": {
+        "outcome": "answer",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [
+          "4.2"
+        ],
+        "must_include_any": [
+          [
+            "non-reimbursable",
+            "not reimbursable",
+            "cannot be reimbursed",
+            "won't be reimbursed",
+            "can't be reimbursed",
+            "not be reimbursed",
+            "no longer reimbursable",
+            "not eligible"
+          ]
+        ],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "evidence": {
+        "lines": [
+          142
+        ],
+        "quote": "older than one year are non-reimbursable"
+      }
+    },
+    {
+      "eval_case_id": "pol-unans-001",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the monthly parking subsidy?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "S$50",
+          "S$100",
+          "S$150",
+          "S$200",
+          "$100 per month",
+          "$150 per month",
+          "$200 per month"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent. Only mentions: traffic/parking fines non-reimbursable (line 157); 'commuter benefits' continue during carer's leave (line 788) with no amount."
+    },
+    {
+      "eval_case_id": "pol-unans-002",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Is there a company car scheme?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "company car allowance",
+          "eligible for a company car",
+          "company car scheme is available",
+          "car scheme provides"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent. Near-misses: personal car mileage reimbursable via Concur and midsize rentals (line 148); 'Company Card' (line 137) is not a car."
+    },
+    {
+      "eval_case_id": "pol-unans-003",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How much can I get reimbursed for my gym membership each month?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "S$50",
+          "S$100",
+          "S$150",
+          "$50 per month",
+          "$100 per month",
+          "$1,200",
+          "S$1,200"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Amount absent. Handbook says gym reimbursement continues during leave (lines 643, 693, 825, 927) and §31.3 (line 1112) says employees 'may be eligible for ... wellness/gym subsidies' with details on the Company Website. Correct: no figure in handbook; point to Company Website / HR. Citing §31.3 is acceptable."
+    },
+    {
+      "eval_case_id": "pol-unans-004",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "how many days of marriage leave do i get for my wedding?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "days of marriage leave",
+          "marriage leave of",
+          "wedding leave of"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'marriage'/'wedding' in handbook."
+    },
+    {
+      "eval_case_id": "pol-unans-005",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Do we get paid leave for NS reservist call-ups?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "days of NS leave",
+          "NS leave of",
+          "reservist leave of"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'national service'/'reservist'."
+    },
+    {
+      "eval_case_id": "pol-unans-006",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the yearly limit for tuition or course fee reimbursement?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "$5,000 per year",
+          "S$5,000",
+          "$3,000 per year",
+          "S$3,000",
+          "$2,000 per year",
+          "tuition reimbursement of"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'tuition'/'course fee'/education benefit."
+    },
+    {
+      "eval_case_id": "pol-unans-007",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How long is the probation period for new joiners?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "3-month probation",
+          "3 months probation",
+          "6-month probation",
+          "6 months probation",
+          "probation period is"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'probation'."
+    },
+    {
+      "eval_case_id": "pol-unans-008",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the overtime pay rate if I work late on weekdays?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "1.5 times",
+          "1.5x",
+          "time and a half",
+          "2x your hourly",
+          "double pay"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent. Near-miss: TOIL for public-holiday/weekend work (§25.2) — no overtime pay rate."
+    },
+    {
+      "eval_case_id": "pol-unans-009",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Do we get a 13th month bonus or AWS?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "13th month bonus is paid",
+          "one month AWS",
+          "1 month AWS",
+          "AWS of",
+          "13th-month bonus is"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no '13th'/'AWS'. Bonus mentioned only as GRAD-based company bonus continuing during leave."
+    },
+    {
+      "eval_case_id": "pol-unans-010",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I get a day off for my birthday?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "birthday leave of",
+          "1 day birthday",
+          "one day of birthday",
+          "birthday leave is"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'birthday'."
+    },
+    {
+      "eval_case_id": "pol-unans-011",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP004",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How much is the referral bonus if I refer a friend who gets hired?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "$1,000",
+          "S$1,000",
+          "$2,000",
+          "S$2,000",
+          "$3,000",
+          "referral bonus of"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no employee referral programme ('referral' only appears for drug counselling referrals, line 392)."
+    },
+    {
+      "eval_case_id": "pol-unans-012",
+      "category": "policy.unanswerable",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the dress code for the Singapore office?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "refuse_escalate",
+        "route": [
+          "policy_agent"
+        ],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [
+          "search_policy"
+        ],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [
+          "business casual is required",
+          "smart casual",
+          "jeans are not allowed",
+          "dress code is"
+        ],
+        "vendor_writes": 0
+      },
+      "notes": "Absent: no 'dress code'."
+    },
+    {
+      "eval_case_id": "pol-amb-001",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How much leave do I get?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Leave type unspecified (vacation 20/21/22, sick 14, childcare 6/2, maternity 24w, BBL 18w, ...). Should ask which leave type."
+    },
+    {
+      "eval_case_id": "pol-amb-002",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "What's the spending cap?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Could be meals (US$120/day), host gift (US$50/day), home office (US$500), relocation (US$10,000), gifts tiers, company-card thresholds."
+    },
+    {
+      "eval_case_id": "pol-amb-003",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP001",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "how long do i have to submit it?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Expense (30 days, Concur), MC (48 hours), medical claim (30 days), SPL proof (4 weeks) — referent unknown."
+    },
+    {
+      "eval_case_id": "pol-amb-004",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP004",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Do I need approval for this gift?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Depends on recipient (US gov / non-US gov / commercial) and value; no details given."
+    },
+    {
+      "eval_case_id": "pol-amb-005",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP003",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "How many weeks of parental leave can I take?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Birthing parent → maternity 24 weeks (SG); non-birthing → baby bonding 18 weeks. Should ask which applies (a both-options answer is acceptable to the judge only if it asks/conditions clearly)."
+    },
+    {
+      "eval_case_id": "pol-amb-006",
+      "category": "policy.ambiguous",
+      "uc": "UC-1.1",
+      "persona": "EMP002",
+      "faults": {},
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Can I carry it over to next year?"
+          }
+        ]
+      },
+      "expected": {
+        "outcome": "clarify",
+        "route": [],
+        "route_none": [
+          "itsm_agent"
+        ],
+        "tools_all": [],
+        "tools_none": [
+          "commit_action"
+        ],
+        "sections": [],
+        "must_include_any": [],
+        "must_not_include": [],
+        "vendor_writes": 0
+      },
+      "notes": "Vacation carries over one year; childcare, floating holidays do not. Referent unknown."
+    }
+  ]
+}
