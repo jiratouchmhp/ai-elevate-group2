@@ -145,7 +145,11 @@ class AuditLogger:
 
     @property
     def records(self) -> List[AuditRecord]:
-        return list(self._records)
+        return sorted(
+            self._records,
+            key=lambda r: r.timestamp or "",
+            reverse=True,
+        )
 
     def get_record(
         self, correlation_id: str, *, prefer_remote: bool = False
@@ -186,8 +190,16 @@ class AuditLogger:
                         r.correlation_id == rec.correlation_id for r in self._records
                     ):
                         self._records.append(rec)
-            return list(by_id.values())
-        return [r for r in self._records if r.session_id == session_id]
+            return sorted(
+                by_id.values(),
+                key=lambda r: r.timestamp or "",
+                reverse=True,
+            )
+        return sorted(
+            [r for r in self._records if r.session_id == session_id],
+            key=lambda r: r.timestamp or "",
+            reverse=True,
+        )
 
     def get_denials(self, *, prefer_remote: bool = False) -> List[AuditRecord]:
         if prefer_remote:
@@ -201,21 +213,35 @@ class AuditLogger:
                         r.correlation_id == rec.correlation_id for r in self._records
                     ):
                         self._records.append(rec)
-        return [
-            r
-            for r in self._records
-            if r.pdp_decision == "DENY" or r.outcome in ("DENIED", "BLOCKED")
-        ]
-
-    def list_remote_records(self, limit: int = 100) -> List[AuditRecord]:
-        docs = self.firestore.list_documents(
-            COLLECTION_AUDIT_LOGS, page_size=limit, prefer_remote=True
+        return sorted(
+            [
+                r
+                for r in self._records
+                if r.pdp_decision == "DENY" or r.outcome in ("DENIED", "BLOCKED")
+            ],
+            key=lambda r: r.timestamp or "",
+            reverse=True,
         )
-        out: List[AuditRecord] = []
+
+    def list_remote_records(self, limit: int = 200) -> List[AuditRecord]:
+        docs = self.firestore.list_documents(
+            COLLECTION_AUDIT_LOGS, page_size=max(limit, 300), prefer_remote=True
+        )
+        by_id: Dict[str, AuditRecord] = {r.correlation_id: r for r in self._records}
         for d in docs:
             if d.get("correlation_id"):
-                out.append(AuditRecord.from_dict(d))
-        return out[:limit]
+                rec = AuditRecord.from_dict(d)
+                by_id[rec.correlation_id] = rec
+                if not any(
+                    r.correlation_id == rec.correlation_id for r in self._records
+                ):
+                    self._records.append(rec)
+        sorted_records = sorted(
+            by_id.values(),
+            key=lambda r: r.timestamp or "",
+            reverse=True,
+        )
+        return sorted_records[:limit]
 
     def clear(self) -> None:
         self._records.clear()

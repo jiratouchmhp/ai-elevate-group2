@@ -369,6 +369,61 @@ export const App: React.FC = () => {
 
   // Live Firestore Ledger & Audit State
   const [ledgerItems, setLedgerItems] = useState<CommStep[]>([]);
+  const [auditRecords, setAuditRecords] = useState<any[]>([]);
+  const [auditMeta, setAuditMeta] = useState<{
+    project_id: string;
+    database_id: string;
+    collection: string;
+    use_firestore: boolean;
+    cloud_reachable: boolean;
+    remote_writes: number;
+    remote_reads: number;
+    last_synced: string;
+  }>({
+    project_id: 'ai-training-van-01',
+    database_id: 'hr-agent-transaction-ledger',
+    collection: 'audit_logs',
+    use_firestore: true,
+    cloud_reachable: true,
+    remote_writes: 0,
+    remote_reads: 0,
+    last_synced: 'Never',
+  });
+  const [activePage, setActivePage] = useState<'assistant' | 'audit'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname.toLowerCase();
+      if (p.startsWith('/audit') || window.location.hash === '#audit') {
+        return 'audit';
+      }
+    }
+    return 'assistant';
+  });
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditDecisionFilter, setAuditDecisionFilter] = useState<'ALL' | 'ALLOW' | 'DENY' | 'CONFIRM'>('ALL');
+  const [auditEmployeeFilter, setAuditEmployeeFilter] = useState<string>('ALL');
+  const [expandedCorrelationId, setExpandedCorrelationId] = useState<string | null>(null);
+  const [autoRefreshAudit, setAutoRefreshAudit] = useState<boolean>(true);
+  const [isRefreshingAudit, setIsRefreshingAudit] = useState<boolean>(false);
+
+  const navigatePage = (target: 'assistant' | 'audit') => {
+    setActivePage(target);
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      const newUrl = target === 'audit' ? '/audit' : '/';
+      if (window.location.pathname !== newUrl) {
+        window.history.pushState({ page: target }, '', newUrl);
+      }
+    }
+    refreshGovernanceTelemetry();
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const p = window.location.pathname.toLowerCase();
+      setActivePage(p.startsWith('/audit') || window.location.hash === '#audit' ? 'audit' : 'assistant');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   // Chat Messages State
   const [messages, setMessages] = useState<ChatTurnMessage[]>([
@@ -380,7 +435,8 @@ export const App: React.FC = () => {
       text:
         'Welcome to the **Altostrat Singapore HR & IT Agentic Assistant** (React + TypeScript Experience Plane).\n\n' +
         '- **Left Pane (Architecture & Agent Comm):** Visualizes how your identity, guardrails, `root_orchestrator`, domain sub-agents (`policy_agent`, `workweek_agent`, `service_immediately_agent`), Deterministic PDP, and Cloud Firestore Sagas communicate in real time.\n' +
-        '- **Right Pane (Rich Markdown Chat & Scenarios):** Click any scenario button above or ask a question below to see full **Markdown rendering** (tables, lists, code badges, citations) and watch the architecture diagram light up step-by-step.',
+        '- **Right Pane (Rich Markdown Chat & Scenarios):** Click any scenario button above or ask a question below to see full **Markdown rendering** (tables, lists, code badges, citations) and watch the architecture diagram light up step-by-step.\n' +
+        '- **📜 Firestore Audit Logs (`/audit`):** Click **Firestore Audit Logs** in the top bar at any time to inspect all audit logs stored in Cloud Firestore sorted in descending timestamp order.',
     },
   ]);
 
@@ -400,34 +456,64 @@ export const App: React.FC = () => {
   }[persona] || 'EMP-836';
 
   const refreshGovernanceTelemetry = async () => {
+    setIsRefreshingAudit(true);
     try {
-      const [auditRes, ledgerRes] = await Promise.all([fetch('/api/audit'), fetch('/api/ledger')]);
+      const [auditRes, ledgerRes] = await Promise.all([
+        fetch('/api/audit?prefer_remote=true&limit=200'),
+        fetch('/api/ledger'),
+      ]);
       const audit = await auditRes.json();
       const ledger = await ledgerRes.json();
       const items: CommStep[] = [];
 
-      const sagas = (ledger.sagas || []).slice(-4).reverse();
-      const records = (audit.records || []).slice(-6).reverse();
+      // Explicitly guarantee descending timestamp sort on client as well
+      const sortedAuditRecords = [...(audit.records || [])].sort((a: any, b: any) =>
+        String(b.timestamp || '').localeCompare(String(a.timestamp || ''))
+      );
+      setAuditRecords(sortedAuditRecords);
+
+      const fsStat = audit.firestore_status || {};
+      setAuditMeta({
+        project_id: audit.project_id || fsStat.project_id || 'ai-training-van-01',
+        database_id: audit.database_id || fsStat.active_database_id || 'hr-agent-transaction-ledger',
+        collection: audit.collection || 'audit_logs',
+        use_firestore: audit.use_firestore !== undefined ? Boolean(audit.use_firestore) : true,
+        cloud_reachable:
+          audit.cloud_reachable !== undefined
+            ? Boolean(audit.cloud_reachable)
+            : Boolean(fsStat.cloud_reachable ?? true),
+        remote_writes: Number(fsStat.remote_writes || 0),
+        remote_reads: Number(fsStat.remote_reads || 0),
+        last_synced: new Date().toLocaleTimeString(),
+      });
+
+      const sagas = (ledger.sagas || []).slice(0, 4);
+      const recentRecords = sortedAuditRecords.slice(0, 8);
 
       sagas.forEach((s: any) => {
         items.push({
           badge: `SAGA · ${escapeHtml(s.state || s.status || 'ACTIVE')}`,
           typeBadge: 'badge-b3',
-          html: `Saga <code>${escapeHtml(s.saga_id || s.id || 'saga')}</code> · Tool: <code>${escapeHtml(
-            s.tool_name || s.action || 'write_op'
+          html: `Saga <code>${escapeHtml(s.saga_id || s.id || 'saga')}</code> · Use Case: <code>${escapeHtml(
+            s.use_case || s.tool_name || 'write_op'
           )}</code> · Employee: <code>${escapeHtml(s.employee_id || 'EMP-836')}</code>`,
         });
       });
 
-      records.forEach((r: any) => {
-        const isDeny = String(r.decision || r.verdict || '').toUpperCase().includes('DENY') || r.blocked;
+      recentRecords.forEach((r: any) => {
+        const decision = String(r.pdp_decision || r.decision || 'ALLOW').toUpperCase();
+        const outcome = String(r.outcome || 'SUCCESS').toUpperCase();
+        const isDeny = decision.includes('DENY') || outcome === 'DENIED' || outcome === 'BLOCKED';
+        const isConfirm = decision.includes('CONFIRM');
         items.push({
-          badge: isDeny ? 'PDP DENY' : 'PDP ALLOW',
-          cls: isDeny ? 'step-guardrail-block' : '',
-          typeBadge: isDeny ? 'badge-block' : 'badge-mcp',
-          html: `Agent: <code>${escapeHtml(r.agent_name || 'root_orchestrator')}</code> · Tool: <code>${escapeHtml(
-            r.tool_name || 'chat'
-          )}</code> · Rule: <code>${escapeHtml(r.rule_id || 'DEFAULT')}</code>`,
+          badge: isDeny ? 'PDP DENY' : isConfirm ? 'B-3 CONFIRM' : 'PDP ALLOW',
+          cls: isDeny ? 'step-guardrail-block' : isConfirm ? 'step-confirm' : '',
+          typeBadge: isDeny ? 'badge-block' : isConfirm ? 'badge-b3' : 'badge-mcp',
+          html: `<code>${escapeHtml(r.timestamp || '')}</code> · Tool: <code>${escapeHtml(
+            r.tool_invoked || r.tool_name || 'chat'
+          )}</code> · Rule: <code>${escapeHtml(
+            r.pdp_rule_id || r.rule_id || 'DEFAULT'
+          )}</code> · Employee: <code>${escapeHtml(r.employee_id || 'EMP-836')}</code>`,
         });
       });
 
@@ -446,8 +532,22 @@ export const App: React.FC = () => {
           html: 'Could not fetch live ledger telemetry.',
         },
       ]);
+    } finally {
+      setIsRefreshingAudit(false);
     }
   };
+
+  useEffect(() => {
+    refreshGovernanceTelemetry();
+  }, []);
+
+  useEffect(() => {
+    if (activePage !== 'audit' || !autoRefreshAudit) return;
+    const timer = setInterval(() => {
+      refreshGovernanceTelemetry();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [activePage, autoRefreshAudit]);
 
   const visualizeTurnExecution = (data: any, latencyMs: number) => {
     const newNodes: Record<string, string> = {};
@@ -684,6 +784,7 @@ export const App: React.FC = () => {
         confirmationCard: data.confirmation_card || null,
       };
       setMessages((prev) => [...prev, agentMsg]);
+      refreshGovernanceTelemetry();
     } catch {
       setIsThinking(false);
       setArchBanner({ mode: 'blocked', text: '⚠️ NETWORK OR BFF ERROR' });
@@ -693,11 +794,64 @@ export const App: React.FC = () => {
   const nodeInfo = NODE_DESCRIPTIONS[selectedNode] || NODE_DESCRIPTIONS.root_orchestrator;
   const visibleScenarios = SCENARIOS.filter((s) => selectedTrack === 'all' || s.track === selectedTrack);
 
+  // Compute filtered audit records (preserving descending timestamp order)
+  const filteredAuditRecords = auditRecords.filter((r: any) => {
+    const dec = String(r.pdp_decision || 'ALLOW').toUpperCase();
+    const out = String(r.outcome || 'SUCCESS').toUpperCase();
+    const isDeny = dec.includes('DENY') || out === 'DENIED' || out === 'BLOCKED';
+    const isConfirm = dec.includes('CONFIRM');
+
+    if (auditDecisionFilter === 'ALLOW' && (isDeny || isConfirm)) return false;
+    if (auditDecisionFilter === 'DENY' && !isDeny) return false;
+    if (auditDecisionFilter === 'CONFIRM' && !isConfirm) return false;
+
+    if (auditEmployeeFilter !== 'ALL' && String(r.employee_id || '') !== auditEmployeeFilter) {
+      return false;
+    }
+
+    const q = auditSearch.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [
+      r.correlation_id,
+      r.session_id,
+      r.employee_id,
+      r.actor_type,
+      r.agent_id,
+      r.tool_invoked,
+      r.pdp_decision,
+      r.pdp_rule_id,
+      r.outcome,
+      r.backend_ref,
+      r.notes,
+      JSON.stringify(r.tool_args_redacted || {}),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(q);
+  });
+
+  const allowCount = auditRecords.filter((r: any) => {
+    const dec = String(r.pdp_decision || 'ALLOW').toUpperCase();
+    const out = String(r.outcome || 'SUCCESS').toUpperCase();
+    return !dec.includes('DENY') && !dec.includes('CONFIRM') && out !== 'DENIED' && out !== 'BLOCKED';
+  }).length;
+
+  const denyCount = auditRecords.filter((r: any) => {
+    const dec = String(r.pdp_decision || '').toUpperCase();
+    const out = String(r.outcome || '').toUpperCase();
+    return dec.includes('DENY') || out === 'DENIED' || out === 'BLOCKED';
+  }).length;
+
+  const confirmCount = auditRecords.filter((r: any) =>
+    String(r.pdp_decision || '').toUpperCase().includes('CONFIRM')
+  ).length;
+
   return (
     <>
       {/* TOP EXECUTIVE HEADER BAR */}
       <header className="top-bar">
-        <div className="brand-cluster">
+        <div className="brand-cluster" style={{ cursor: 'pointer' }} onClick={() => navigatePage('assistant')}>
           <div className="brand-logo">AS</div>
           <div>
             <h1 className="brand-title">Altostrat Singapore — Agentic Architecture &amp; HR Assistant</h1>
@@ -718,6 +872,28 @@ export const App: React.FC = () => {
             </span>
           </div>
 
+          <button
+            type="button"
+            id="nav-assistant-page-btn"
+            className={`nav-audit-btn ${activePage === 'assistant' ? 'active' : ''}`}
+            onClick={() => navigatePage('assistant')}
+          >
+            <span>💬</span>
+            <span>HR Assistant</span>
+          </button>
+
+          <button
+            type="button"
+            id="nav-audit-logs-btn"
+            className={`nav-audit-btn ${activePage === 'audit' ? 'active' : ''}`}
+            onClick={() => navigatePage('audit')}
+            title="View all Cloud Firestore audit logs sorted in descending timestamp order (/audit)"
+          >
+            <span>📜</span>
+            <span>Firestore Audit Logs</span>
+            <span className="nav-audit-count">{auditRecords.length}</span>
+          </button>
+
           <div className="persona-selector-wrap">
             <label htmlFor="persona">IAP Persona:</label>
             <select
@@ -734,10 +910,395 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* DUAL-PANE SPLIT WORKSPACE */}
-      <div className="workspace-split">
-        {/* ====================================================================
-            LEFT PANE: Interactive Architecture Flow Diagram & Agent Comm Trace
+      {/* ====================================================================
+          DEDICATED FIRESTORE AUDIT LOGS PAGE (/audit)
+          ==================================================================== */}
+      {activePage === 'audit' ? (
+        <main className="audit-page-container" aria-label="Cloud Firestore Audit Logs">
+          <div className="audit-hero-card">
+            <div>
+              <h2 className="audit-hero-title">
+                <span>🔥 Cloud Firestore Audit Logs Inspector</span>
+                <span className="audit-badge audit-badge-allow">
+                  ↓ DESCENDING TIMESTAMP (NEWEST FIRST)
+                </span>
+              </h2>
+              <div className="audit-hero-sub">
+                Project: <strong>{auditMeta.project_id}</strong> · Database:{' '}
+                <strong>{auditMeta.database_id}</strong> · Collection:{' '}
+                <strong>{auditMeta.collection}</strong> · Last Synced: <strong>{auditMeta.last_synced}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="track-filter-btn"
+                style={{
+                  background: autoRefreshAudit ? 'rgba(16, 185, 129, 0.18)' : '#1e293b',
+                  color: autoRefreshAudit ? '#34d399' : '#94a3b8',
+                  borderColor: autoRefreshAudit ? '#10b981' : '#334155',
+                  padding: '7px 12px',
+                }}
+                onClick={() => setAutoRefreshAudit((v) => !v)}
+              >
+                {autoRefreshAudit ? '● Auto-Refresh (5s): ON' : '○ Auto-Refresh: OFF'}
+              </button>
+
+              <button
+                type="button"
+                className="track-filter-btn"
+                style={{
+                  background: '#0284c7',
+                  color: '#ffffff',
+                  borderColor: '#38bdf8',
+                  padding: '7px 14px',
+                }}
+                onClick={refreshGovernanceTelemetry}
+              >
+                {isRefreshingAudit ? '↻ Syncing Firestore...' : '↻ Sync from Firestore'}
+              </button>
+
+              <button
+                type="button"
+                className="track-filter-btn"
+                style={{
+                  background: '#1e293b',
+                  color: '#f8fafc',
+                  borderColor: '#475569',
+                  padding: '7px 14px',
+                }}
+                onClick={() => navigatePage('assistant')}
+              >
+                ← Back to HR Assistant
+              </button>
+            </div>
+          </div>
+
+          {/* KPI TELEMETRY CARDS */}
+          <div className="audit-kpi-grid">
+            <div className="audit-kpi-card">
+              <span className="audit-kpi-label">Total Firestore Audit Records</span>
+              <span className="audit-kpi-val" style={{ color: '#38bdf8' }}>
+                {auditRecords.length}
+              </span>
+              <span className="audit-kpi-meta">Sorted by timestamp DESC ↓</span>
+            </div>
+
+            <div className="audit-kpi-card">
+              <span className="audit-kpi-label">PDP Allowed (ALLOW)</span>
+              <span className="audit-kpi-val" style={{ color: '#34d399' }}>
+                {allowCount}
+              </span>
+              <span className="audit-kpi-meta">Verified Automated Agent Actions</span>
+            </div>
+
+            <div className="audit-kpi-card">
+              <span className="audit-kpi-label">PDP / Guardrail Denials</span>
+              <span className="audit-kpi-val" style={{ color: '#fb7185' }}>
+                {denyCount}
+              </span>
+              <span className="audit-kpi-meta">NFR-1.2 Mandatory Denial Audit</span>
+            </div>
+
+            <div className="audit-kpi-card">
+              <span className="audit-kpi-label">Rule B-3 Confirmations</span>
+              <span className="audit-kpi-val" style={{ color: '#fbbf24' }}>
+                {confirmCount}
+              </span>
+              <span className="audit-kpi-meta">Write-Gate Paused Sagas</span>
+            </div>
+
+            <div className="audit-kpi-card">
+              <span className="audit-kpi-label">Firestore Persistence Status</span>
+              <span
+                className="audit-kpi-val"
+                style={{
+                  fontSize: '14px',
+                  color: auditMeta.cloud_reachable ? '#34d399' : '#fbbf24',
+                }}
+              >
+                {auditMeta.cloud_reachable ? '🟢 CLOUD FIRESTORE LIVE' : '🟡 IN-MEMORY + MIRROR'}
+              </span>
+              <span className="audit-kpi-meta">
+                Writes: {auditMeta.remote_writes} · Reads: {auditMeta.remote_reads}
+              </span>
+            </div>
+          </div>
+
+          {/* FILTER & SEARCH TOOLBAR */}
+          <div className="audit-toolbar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`track-filter-btn ${auditDecisionFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setAuditDecisionFilter('ALL')}
+              >
+                All Logs ({auditRecords.length})
+              </button>
+              <button
+                type="button"
+                className={`track-filter-btn ${auditDecisionFilter === 'ALLOW' ? 'active' : ''}`}
+                onClick={() => setAuditDecisionFilter('ALLOW')}
+              >
+                ✅ ALLOW ({allowCount})
+              </button>
+              <button
+                type="button"
+                className={`track-filter-btn ${auditDecisionFilter === 'DENY' ? 'active' : ''}`}
+                onClick={() => setAuditDecisionFilter('DENY')}
+              >
+                🛑 DENY / BLOCKED ({denyCount})
+              </button>
+              <button
+                type="button"
+                className={`track-filter-btn ${auditDecisionFilter === 'CONFIRM' ? 'active' : ''}`}
+                onClick={() => setAuditDecisionFilter('CONFIRM')}
+              >
+                ⏳ B-3 CONFIRM ({confirmCount})
+              </button>
+
+              <select
+                value={auditEmployeeFilter}
+                onChange={(e) => setAuditEmployeeFilter(e.target.value)}
+                style={{
+                  background: '#1e293b',
+                  color: '#f8fafc',
+                  border: '1px solid #334155',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                <option value="ALL">All Employees</option>
+                <option value="EMP-836">EMP-836</option>
+                <option value="EMP-SG-001">EMP-SG-001</option>
+                <option value="EMP-SG-002">EMP-SG-002</option>
+                <option value="EMP-SG-003">EMP-SG-003</option>
+              </select>
+            </div>
+
+            <input
+              type="text"
+              className="audit-search-input"
+              placeholder="Search correlation_id, tool_invoked, rule_id, employee_id..."
+              value={auditSearch}
+              onChange={(e) => setAuditSearch(e.target.value)}
+            />
+          </div>
+
+          {/* DESCENDING TIMESTAMP AUDIT LOG TABLE */}
+          <div className="audit-table-wrap">
+            <table className="audit-table">
+              <thead>
+                <tr>
+                  <th>Timestamp (UTC) ↓ DESC</th>
+                  <th>Correlation &amp; Session ID</th>
+                  <th>Employee &amp; Actor (FR-1.2)</th>
+                  <th>Tool Invoked</th>
+                  <th>PDP Decision &amp; Rule ID</th>
+                  <th>Outcome &amp; Backend Ref</th>
+                  <th>Firestore Doc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAuditRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#94a3b8' }}>
+                      No audit records match the current filter. Trigger a scenario on the HR Assistant page or click{' '}
+                      <strong>↻ Sync from Firestore</strong>.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAuditRecords.map((r: any, idx: number) => {
+                    const corrId = String(r.correlation_id || `row-${idx}`);
+                    const dec = String(r.pdp_decision || 'ALLOW').toUpperCase();
+                    const out = String(r.outcome || 'SUCCESS').toUpperCase();
+                    const isDeny = dec.includes('DENY') || out === 'DENIED' || out === 'BLOCKED';
+                    const isConfirm = dec.includes('CONFIRM');
+                    const isExpanded = expandedCorrelationId === corrId;
+                    const tsRaw = String(r.timestamp || '');
+                    const tsFormatted = tsRaw ? tsRaw.replace('T', ' ').replace('+00:00', ' UTC') : '—';
+                    const shortAgent = String(r.agent_id || '').split('/').pop() || 'root-orchestrator';
+
+                    return (
+                      <React.Fragment key={corrId}>
+                        <tr
+                          className={`audit-row ${isDeny ? 'row-deny' : ''}`}
+                          onClick={() => setExpandedCorrelationId(isExpanded ? null : corrId)}
+                        >
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontWeight: 700, color: '#f8fafc' }}>{tsFormatted}</div>
+                            <div style={{ fontSize: '10.5px', color: '#38bdf8' }}>
+                              #{idx + 1} (Newest First)
+                            </div>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px' }}>
+                            <div style={{ color: '#7dd3fc', fontWeight: 600 }}>{corrId}</div>
+                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              Session: {r.session_id || '—'}
+                            </div>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px' }}>
+                            <div>
+                              <strong style={{ color: '#f8fafc' }}>{r.employee_id || 'EMP-836'}</strong>{' '}
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  padding: '1px 5px',
+                                  borderRadius: '4px',
+                                  background: '#1e293b',
+                                  color: '#94a3b8',
+                                }}
+                              >
+                                {r.actor_type || 'AUTOMATED_AGENT'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: '#64748b' }}>Agent: {shortAgent}</div>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px' }}>
+                            <code
+                              style={{
+                                background: '#1e293b',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                color: '#e2e8f0',
+                              }}
+                            >
+                              {r.tool_invoked || 'chat_turn'}
+                            </code>
+                          </td>
+                          <td>
+                            <div>
+                              <span
+                                className={`audit-badge ${
+                                  isDeny
+                                    ? 'audit-badge-deny'
+                                    : isConfirm
+                                    ? 'audit-badge-confirm'
+                                    : 'audit-badge-allow'
+                                }`}
+                              >
+                                {dec}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '10.5px',
+                                color: '#94a3b8',
+                                marginTop: '3px',
+                              }}
+                            >
+                              Rule: {r.pdp_rule_id || 'DEFAULT'}
+                            </div>
+                          </td>
+                          <td>
+                            <div>
+                              <span
+                                className={`audit-badge ${
+                                  isDeny
+                                    ? 'audit-badge-deny'
+                                    : isConfirm
+                                    ? 'audit-badge-confirm'
+                                    : 'audit-badge-allow'
+                                }`}
+                              >
+                                {out}
+                              </span>
+                            </div>
+                            {r.backend_ref && (
+                              <div
+                                style={{
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '10.5px',
+                                  color: '#34d399',
+                                  marginTop: '3px',
+                                }}
+                              >
+                                Ref: {r.backend_ref}
+                              </div>
+                            )}
+                            {r.notes && (
+                              <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '3px', maxWidth: '280px' }}>
+                                {r.notes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#38bdf8' }}>
+                            {isExpanded ? '▲ Hide JSON' : '▼ Inspect JSON'}
+                          </td>
+                        </tr>
+
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={7} className="audit-expanded-cell">
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                                  gap: '12px',
+                                  marginBottom: '10px',
+                                }}
+                              >
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      color: '#94a3b8',
+                                      marginBottom: '4px',
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    Redacted Tool Args (FR-1.4 SPII Protection) &amp; Guardrail Verdicts
+                                  </div>
+                                  <pre className="audit-json-pre">
+                                    {JSON.stringify(
+                                      {
+                                        tool_args_redacted: r.tool_args_redacted || {},
+                                        guardrail_verdicts: r.guardrail_verdicts || {},
+                                        retrieved_doc_ids: r.retrieved_doc_ids || [],
+                                        relevance_scores: r.relevance_scores || [],
+                                      },
+                                      null,
+                                      2
+                                    )}
+                                  </pre>
+                                </div>
+
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      color: '#94a3b8',
+                                      marginBottom: '4px',
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    Raw Firestore Document (`audit_logs/{corrId}`)
+                                  </div>
+                                  <pre className="audit-json-pre">{JSON.stringify(r, null, 2)}</pre>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </main>
+      ) : (
+        /* DUAL-PANE SPLIT WORKSPACE */
+        <div className="workspace-split">
+          {/* ====================================================================
+              LEFT PANE: Interactive Architecture Flow Diagram & Agent Comm Trace
             ==================================================================== */}
         <section className="left-arch-pane" aria-label="Architecture Flow and Multi-Agent Communication">
           <div className="pane-header">
@@ -1072,19 +1633,31 @@ export const App: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   marginBottom: '8px',
+                  gap: '8px',
+                  flexWrap: 'wrap',
                 }}
               >
                 <span style={{ fontSize: '11.5px', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>
-                  Live Telemetry from <code>/api/audit</code> &amp; <code>/api/ledger</code>
+                  Live Telemetry from <code>/api/audit</code> (Descending Timestamp ↓) &amp; <code>/api/ledger</code>
                 </span>
-                <button
-                  type="button"
-                  className="track-filter-btn"
-                  style={{ background: '#1e293b', color: '#38bdf8', borderColor: '#334155' }}
-                  onClick={refreshGovernanceTelemetry}
-                >
-                  ↻ Refresh Ledger
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="track-filter-btn"
+                    style={{ background: '#0284c7', color: '#ffffff', borderColor: '#38bdf8' }}
+                    onClick={() => navigatePage('audit')}
+                  >
+                    📜 Open Full Audit Logs Page ↗
+                  </button>
+                  <button
+                    type="button"
+                    className="track-filter-btn"
+                    style={{ background: '#1e293b', color: '#38bdf8', borderColor: '#334155' }}
+                    onClick={refreshGovernanceTelemetry}
+                  >
+                    ↻ Refresh Ledger
+                  </button>
+                </div>
               </div>
               <div className="comm-timeline">
                 {ledgerItems.map((item, idx) => (
@@ -1250,6 +1823,7 @@ export const App: React.FC = () => {
           </div>
         </section>
       </div>
+      )}
     </>
   );
 };

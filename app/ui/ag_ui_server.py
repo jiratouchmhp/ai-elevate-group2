@@ -123,36 +123,63 @@ def build_audit_payload(
     *,
     session_id: Optional[str] = None,
     denials_only: bool = False,
-    prefer_remote: bool = False,
+    prefer_remote: bool = True,
+    limit: int = 200,
 ) -> Dict[str, Any]:
+    fs_store = bff.runtime.audit.firestore
     if denials_only:
-        records = bff.runtime.audit.get_denials(prefer_remote=prefer_remote)
+        records = bff.runtime.audit.get_denials(prefer_remote=prefer_remote)[:limit]
     elif session_id:
         records = bff.runtime.audit.get_by_session(
             session_id, prefer_remote=prefer_remote
-        )
+        )[:limit]
     else:
         records = (
-            bff.runtime.audit.list_remote_records(limit=50)
+            bff.runtime.audit.list_remote_records(limit=limit)
             if prefer_remote
-            else bff.runtime.audit.records
+            else bff.runtime.audit.records[:limit]
         )
+    sorted_records = sorted(
+        records,
+        key=lambda r: r.timestamp or "",
+        reverse=True,
+    )
     return {
-        "project_id": bff.runtime.audit.firestore.project_id,
-        "database_id": bff.runtime.audit.firestore.active_database_id,
-        "count": len(records),
-        "records": [r.to_dict() for r in records],
+        "project_id": fs_store.project_id,
+        "database_id": fs_store.active_database_id,
+        "collection": "audit_logs",
+        "use_firestore": fs_store.use_firestore,
+        "cloud_reachable": fs_store.is_cloud_active,
+        "firestore_status": fs_store.status_summary(),
+        "sort_order": "timestamp_desc",
+        "count": len(sorted_records),
+        "records": [r.to_dict() for r in sorted_records],
     }
 
 
 def build_ledger_payload() -> Dict[str, Any]:
     ledger = bff.runtime.ledger
+    entries = sorted(
+        [e.to_dict() for e in ledger._entries.values()],
+        key=lambda x: str(x.get("created_at_iso") or ""),
+        reverse=True,
+    )
+    sagas = sorted(
+        [s.to_dict() for s in ledger._sagas.values()],
+        key=lambda x: str(x.get("created_at_iso") or ""),
+        reverse=True,
+    )
+    queue = sorted(
+        [t.to_dict() for t in ledger.hr_ops_queue],
+        key=lambda x: str(x.get("created_at_iso") or ""),
+        reverse=True,
+    )
     return {
         "project_id": ledger.firestore.project_id,
         "database_id": ledger.firestore.active_database_id,
-        "entries": [e.to_dict() for e in ledger._entries.values()],
-        "sagas": [s.to_dict() for s in ledger._sagas.values()],
-        "hr_ops_reconciliation_queue": [t.to_dict() for t in ledger.hr_ops_queue],
+        "entries": entries,
+        "sagas": sagas,
+        "hr_ops_reconciliation_queue": queue,
     }
 
 
@@ -262,13 +289,15 @@ try:
     async def audit_endpoint(
         session_id: Optional[str] = None,
         denials_only: bool = False,
-        prefer_remote: bool = False,
+        prefer_remote: bool = True,
+        limit: int = 200,
     ) -> JSONResponse:
         return JSONResponse(
             build_audit_payload(
                 session_id=session_id,
                 denials_only=denials_only,
                 prefer_remote=prefer_remote,
+                limit=limit,
             )
         )
 
@@ -278,6 +307,8 @@ try:
 
     @app.get("/", response_class=HTMLResponse)
     @app.get("/index.html", response_class=HTMLResponse)
+    @app.get("/audit", response_class=HTMLResponse)
+    @app.get("/audit.html", response_class=HTMLResponse)
     async def index_page() -> str:
         return _read_frontend_file("index.html")
 
@@ -381,12 +412,17 @@ class _FallbackAGUIHandler(BaseHTTPRequestHandler):
             qs = parse_qs(parsed.query)
             session_id = qs.get("session_id", [None])[0]
             denials_only = qs.get("denials_only", ["false"])[0].lower() == "true"
-            prefer_remote = qs.get("prefer_remote", ["false"])[0].lower() == "true"
+            prefer_remote = qs.get("prefer_remote", ["true"])[0].lower() != "false"
+            try:
+                limit = int(qs.get("limit", ["200"])[0])
+            except (ValueError, TypeError):
+                limit = 200
             self._send_json(
                 build_audit_payload(
                     session_id=session_id,
                     denials_only=denials_only,
                     prefer_remote=prefer_remote,
+                    limit=limit,
                 )
             )
             return
@@ -412,7 +448,7 @@ class _FallbackAGUIHandler(BaseHTTPRequestHandler):
                 self.wfile.write(chunk.encode("utf-8"))
                 self.wfile.flush()
             return
-        if parsed.path in ("/", "/index.html"):
+        if parsed.path in ("/", "/index.html", "/audit", "/audit.html"):
             body = _read_frontend_file("index.html").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

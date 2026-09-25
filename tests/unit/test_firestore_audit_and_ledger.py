@@ -333,6 +333,45 @@ class TestFirestoreAuditAndLedgerUnit(unittest.TestCase):
         ledger.mark_committed(idem, "LV-LOCAL-01")
         self.assertEqual(ledger.get_entry(idem).backend_ref, "LV-LOCAL-01")
 
+    def test_audit_logs_sorted_by_descending_timestamp_and_payload(self) -> None:
+        """Verifies `list_remote_records` and `build_audit_payload` sort records by descending timestamp."""
+        from app.governance.audit_logger import AuditRecord
+        from app.ui.ag_ui_server import build_audit_payload
+
+        writer_audit = AuditLogger(firestore_store=self.store_writer)
+        reader_audit = AuditLogger(firestore_store=self.store_reader)
+
+        # Insert three audit records with distinct ISO-8601 timestamps out of order
+        for corr_id, ts in [
+            ("corr-ts-middle", "2026-09-25T01:15:00+00:00"),
+            ("corr-ts-oldest", "2026-09-25T00:05:00+00:00"),
+            ("corr-ts-newest", "2026-09-25T02:30:00+00:00"),
+        ]:
+            rec = AuditRecord(
+                correlation_id=corr_id,
+                session_id="sess-sort-test",
+                employee_id="EMP-836",
+                tool_invoked="get_leave_balance",
+                pdp_decision="ALLOW",
+                outcome="SUCCESS",
+                timestamp=ts,
+            )
+            writer_audit._records.append(rec)
+            self.store_writer.upsert_document(
+                COLLECTION_AUDIT_LOGS, corr_id, rec.to_dict()
+            )
+
+        remote_sorted = reader_audit.list_remote_records(limit=50)
+        self.assertEqual(
+            [r.correlation_id for r in remote_sorted[:3]],
+            ["corr-ts-newest", "corr-ts-middle", "corr-ts-oldest"],
+        )
+
+        payload = build_audit_payload(prefer_remote=False)
+        self.assertEqual(payload.get("sort_order"), "timestamp_desc")
+        self.assertEqual(payload.get("collection"), "audit_logs")
+
 
 if __name__ == "__main__":
     unittest.main()
+

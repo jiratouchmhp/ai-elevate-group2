@@ -1,4 +1,7 @@
-# Google ADK & Agents-CLI Evaluation Configuration (SDD §9.1–§9.4)
+# Google ADK & Agents-CLI Evaluation Harness Configuration (SDD §9.1–§9.4)
+# Governs evaluation metrics, release gate scoring thresholds, custom evaluators,
+# dataset bindings (single_turn.json, multi_turn.json, 4-Pillar benchmarks), and runner settings.
+
 metrics_to_run:
   - tool_trajectory_avg_score
   - response_match_score
@@ -30,3 +33,31 @@ custom_metrics:
   - name: e2e_flow_and_governance
     custom_function_file: custom_metrics.py
     description: "Layer 4 E2E Flow & Agent Answer: Multi-hop UC-2.x sagas (100%), read-before-write (§3.5), B-3 confirmation, and red-team/FP gate."
+
+runner_settings:
+  agent_module: "app.agent"
+  root_agent_name: "root_orchestrator"
+  evaluation_engine: "google.adk.evaluation.LocalEvalService"
+  trajectory_match_mode: "IN_ORDER"
+  judge_model: "gemini-3.8-flash"
+  concurrency:
+    max_workers: 4
+    batch_size: 8
+    rate_limit_rpm_buffer: 0.80
+    retry_attempts: 3
+    retry_initial_delay_sec: 1.0
+    retry_backoff_multiplier: 2.0
+  datasets:
+    single_turn: "tests/eval/datasets/single_turn.json"
+    multi_turn: "tests/eval/datasets/multi_turn.json"
+    e2e_4tier_golden: "tests/eval/datasets/e2e_4tier_golden.evalset.json"
+    rag_generation: "tests/eval/datasets/rag_generation.evalset.json"
+    rag_retrieval_benchmark: "tests/eval/datasets/rag_retrieval_benchmark.json"
+    subagent_policy: "tests/eval/datasets/subagents/policy_agent.evalset.json"
+    subagent_workweek: "tests/eval/datasets/subagents/workweek_agent.evalset.json"
+    subagent_service_immediately: "tests/eval/datasets/subagents/service_immediately_agent.evalset.json"
+  rubric_weights:
+    brd_relevance_and_assumptions: 0.25
+    approach_quality_and_rigor: 0.30
+    cost_and_time_efficiency: 0.20
+    guardrail_and_validation_rigor: 0.25

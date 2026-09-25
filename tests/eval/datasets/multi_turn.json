@@ -1,0 +1,507 @@
+{
+  "eval_set_id": "multi_turn_evalset",
+  "name": "Altostrat Singapore HR MAS \u2014 Multi-Turn Conversation Trajectories & Cross-System Sagas",
+  "description": "6 multi-turn conversational trajectories evaluating UC-2.1 Remote Equipment Procurement, UC-2.2 Medical Leave & Email Delegation, UC-2.3 International Relocation, UC-1.2 B-3 Confirmation Gates, UC-1.3 ITSM Ticket Creation & Tracking, and Cross-Domain Context Switching.",
+  "eval_cases": [
+    {
+      "eval_id": "mt_uc2_1_remote_monitor_procurement_saga",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I work remotely and want to order a home office monitor and open a Facilities ticket."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "You qualify under Handbook \u00a75.4 (**Hybrid** status, **$500 USD** cap). Your verified shipping address on file is **18 Marina Boulevard, #12-04, Singapore 018980**. Confirm creating ServiceImmediately ticket (Category: 'Facilities', Priority: '4 - Low', Summary: 'Home office monitor procurement ($500 USD allowance)')?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "get_profile",
+                "args": {}
+              },
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Yes, please confirm and proceed."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Verified your **Hybrid** eligibility under Handbook \u00a75.4 ($500 USD cap) and raised Facilities ticket **INC0042320** shipping to your verified address."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "get_profile",
+                "args": {}
+              },
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "mt_uc2_2_medical_leave_and_email_delegation_saga",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I need medical leave for surgery from 2026-10-05 to 2026-10-09 and email delegation."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Under Handbook \u00a71.1 & \u00a72.2, you receive up to **14 days outpatient sick leave** (Medical Certificate required within 48 hours for absences > 2 work days; note that file attachments are submitted via the WorkWeek portal per OOS-10) and planned medical leave > 1 week requires an **HRSD** ticket (Priority `3 - Moderate`) for manager email delegation. Confirm: Submit 5.0 day(s) of Sick leave from 2026-10-05 to 2026-10-09 (resulting balance: 7.0 days)?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Yes, confirm and submit."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Completed your medical leave setup (Saga **SAGA-4479**): 1. Quoted Handbook \u00a71.1 & \u00a72.2 (submit your MC ID via WorkWeek within 48h). 2. Submitted 5.0 days of Sick leave in WorkWeek (**LR-88202**). 3. Opened HRSD ticket (**INC0042321**, Priority `3 - Moderate`) for manager email delegation."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {}
+              },
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "mt_uc2_3_london_relocation_saga",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I am transferring to the London office next month. What is my relocation allowance, and can you update my address to 10 Downing St, London and request my building access badge?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Under the **International Relocation & Building Access Policy** (Handbook \u00a75.5), your international relocation allowance is capped at **$10,000 USD**, and destination office building badging requires a **'Facilities'** ticket at Priority **'3 - Moderate'**. Confirm updating your WorkWeek contact record (address: '10 Bloomsbury Way, London WC1A 2SL, United Kingdom', phone: 'unchanged')?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "update_contact",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Yes, confirm and execute."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Relocation workflow complete: 1. Confirmed your **$10,000 USD** Relocation Allowance eligibility (Handbook \u00a75.5). 2. Updated your WorkWeek address to **10 Bloomsbury Way, London WC1A 2SL, United Kingdom** (WW-CNT-E1697D). 3. Created Facilities badge pre-configuration ticket **INC0042322** at Priority **'3 - Moderate'**."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              },
+              {
+                "name": "update_contact",
+                "args": {}
+              },
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "mt_uc1_2_workweek_leave_submission_with_b3_confirmation",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I want to ask for 2 days of leave from 2026-10-15 to 2026-10-16"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm: Submit 2.0 day(s) of Vacation leave from 2026-10-15 to 2026-10-16 (resulting balance: 3.0 days)?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Yes, please confirm and submit my leave request."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm: Submit 1.0 day(s) of Vacation leave from 2026-10-15 to 2026-10-15 (resulting balance: 4.0 days)?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "mt_uc1_3_itsm_incident_creation_and_status_tracking",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Create an IT ticket because my VPN connection keeps dropping every 10 minutes."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm creating ServiceImmediately ticket (Category: 'IT', Priority: '3 - Moderate', Summary: 'Create an IT ticket because my VPN connection keeps dropping every 10 minutes.')?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Yes, confirm creating the IT ticket."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Created ticket **INC0042323** (Priority: **3 - Moderate**)."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_3",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "List my open IT support tickets in ServiceImmediately."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Here are your ServiceImmediately tickets: **INC123456** (New, 3 - Moderate), **INC123457** (In Progress, 3 - Moderate), **INC0042320** (New, 4 - Low), **INC0042321** (New, 3 - Moderate), **INC0042322** (New, 3 - Moderate), **INC0042323** (New, 3 - Moderate)"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_tickets",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "mt_policy_to_self_service_context_switch",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "How many days of outpatient sick leave do I get per year?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "According to **Outpatient Sick Leave** (Section `19.2`, anchor `sec-19-2-outpatient-sick-leave#d674ff65`):\n\n[Parent Section: SICK TIME & HOSPITALIZATION LEAVE (SINGAPORE) | Subsection 19.2: Outpatient Sick Leave]\n* **Allowance:** Eligible employees can take up to 14 days of paid sick leave per year compensated at 100% of their base salary. Leave is counted in work days based on your regular work schedule.\n\n[Parent Section: PAID TIME OFF & LEAVE OPERATIONS | Subsection 1.1: Outpatient Sick Time & Hospitalization Leave (Singapore)]\nAltostrat Singapore provides paid sick leave to support your health and recovery when you are medically certified as unfit for work.\n\n* **Outpatient Sick Leave Allowance:** Eligible employees and interns receive up to **14 days of paid outpatient sick leave** per calendar year, compensated at 100% of their base salary. Part-time and fixed-term employees' leave is prorated based on their contracted working hours.  \n* **Hospitalization Leave Allowance:** Employees can utilize an additional **46 work days of paid hospitalization leave** per year. This is not an extension of outpatient sick leave but is granted for inpatient stays, day surgeries, quarantine orders, or serious medical conditions certified by a medical practitioner employed by an approved hospital.  \n* **Notification Requirements:** You must notify your manager that you need to take sick or hospitalization leave **at least one hour before your normal start time**. If your manager is unavailable, you must contact support.  \n* **Medical Certificate (MC) Submission:**  \n  * If you are sick for **more than two work days**, you must submit your sick certificate from a registered medical practitioner via WorkWeek.  \n  * This certificate must be submitted **within 48 hours** of taking the leave.  \n  * Altostrat reserves the right to decline paid sick leave or classify the absence as unpaid if the MC is not submitted. Unapproved absences can result in disciplinary action.\n\n[Parent Section: UNPAID TIME OFF & PERSONAL LEAVE | Subsection 18.3: Personal Leave (Up to 92 Days)]\n* **Allowance:** With both manager and director approval, employees can take up to 92 calendar days of continuous unpaid personal leave, which is inclusive of any unpaid time off already taken.  \n* **Usage Rules:** Personal leave must be taken in one continuous block of time. Vacation can only be added before or after the personal leave if the employee wants to extend their time away.  \n* **Prerequisites:** It is recommended that employees use all available leaves, such as accrued vacation, medical leave, and carer's leave, before applying for a personal leave.  \n* **Approval Criteria:** Applications are evaluated based on past performance and current team needs, and are granted on a case-by-case basis at the business's discretion. Managers and directors may consider factors such as having at least 2 years of tenure, receiving a \"Significant Impact\" or higher rating in the last cycle, having fewer than 10 vacation days remaining, and the team's ability to cover the work in the employee's absence.  \n* **Notice and Booking:** Employees must notify their manager at least 30 days in advance of the requested leave. To book the leave, the employee must contact support to submit the manager and director approvals so that People Ops can enter the personal leave in WorkWeek on their behalf.\n\n[Parent Section: OTHER COMPASSIONATE & UNPAID LEAVES | Subsection 3.3: Unpaid Time Off & Personal Leave (Global)]\nWhen accrued vacation is exhausted or low, employees may request unpaid leaves of absence.\n\n* **Unpaid Time Off (Short-Term):** With manager approval, you can take up to **30 calendar days of unpaid time off**. This can be taken continuously or in daily increments.  \n* **Personal Leave (Long-Term):** Requests to extend unpaid time off past 30 days reclassify the entire leave as a personal leave.  \n  * **Limits:** With manager and director approval, employees can request up to **92 calendar days of continuous unpaid personal leave** (inclusive of any unpaid time off already taken). Personal leave must be taken in one continuous block.  \n  * **Prerequisites:** You typically need **at least 2 years of tenure** and to have received a **\"Significant Impact\" or higher rating** in your last GRAD performance cycle to qualify.  \n  * It is highly recommended that you have **fewer than 10 vacation days remaining** in your balance before unpaid leaves are approved. Personal leave cannot be used as a substitute for flexible work schedules or medical accommodations.\n\n---\n\n[Parent Section: SICK TIME & HOSPITALIZATION LEAVE (SINGAPORE) | Subsection 19.3: Hospitalization Leave]\nEmployees can use an additional 46 work days of hospitalization leave. To use this leave, you must contact support and meet one of the following criteria:\n\n1. You are warded in a hospital as an inpatient or for day surgery.  \n2. You are under quarantine (whether or not in a hospital) under any written law.  \n3. You are ill enough to require hospitalization during the leave period (must be certified by a medical practitioner).  \n4. You need rest or further medical treatment during the leave period after discharging from a hospital (must be certified by a medical practitioner).  \n* **Certification Requirements:** You must provide a sick certificate indicating the hospitalization leave period, issued by a registered medical practitioner who can admit patients into hospitals. For reasons (3) and (4) above, the certifying medical practitioner must be employed by a hospital approved by the Minister for Manpower; otherwise, the company reserves the right to request more information before approving the leave.  \n* **Discretionary Approval:** Paid hospitalization leave is not an automatic extension of paid outpatient sick leave. It is discretionary, based on business approval, and granted on a case-by-case basis."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_2",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "retrieve my balance days"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Here are your current real-time WorkWeek leave balances:\n- **Vacation**: 5.0 days remaining (21.0 accrued, 16.0 used)\n- **Sick Leave**: 7.0 days remaining (14.0 accrued, 7.0 used)"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        },
+        {
+          "invocation_id": "turn_3",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Show my employee profile and work arrangement in WorkWeek."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Your WorkWeek profile: **Mei Ling Tan** (N/A, Department: Cloud Platform Engineering, Location Status: **Hybrid**)."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_profile",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    }
+  ]
+}
