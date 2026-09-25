@@ -12,6 +12,7 @@ Defines:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime
 import re
 from typing import Any, Dict, List, Optional
 
@@ -296,23 +297,337 @@ class HRMultiAgentRuntime:
         )
         return res
 
-    @staticmethod
+    _MONTH_MAP: Dict[str, int] = {
+        "jan": 1, "january": 1,
+        "feb": 2, "february": 2,
+        "mar": 3, "march": 3,
+        "apr": 4, "april": 4,
+        "may": 5,
+        "jun": 6, "june": 6,
+        "jul": 7, "july": 7,
+        "aug": 8, "august": 8,
+        "sep": 9, "sept": 9, "september": 9,
+        "oct": 10, "october": 10,
+        "nov": 11, "november": 11,
+        "dec": 12, "december": 12,
+    }
+
+    _WORD_NUMBERS: Dict[str, float] = {
+        "a": 1.0,
+        "an": 1.0,
+        "one": 1.0,
+        "two": 2.0,
+        "three": 3.0,
+        "four": 4.0,
+        "five": 5.0,
+        "six": 6.0,
+        "seven": 7.0,
+        "eight": 8.0,
+        "nine": 9.0,
+        "ten": 10.0,
+        "half": 0.5,
+    }
+
+    @classmethod
+    def _parse_flexible_dates_and_duration(
+        cls,
+        prompt: str,
+        *,
+        reference_today: Optional[date] = None,
+        default_start: Optional[str] = None,
+        default_end: Optional[str] = None,
+        default_days: Optional[float] = None,
+    ) -> tuple[Optional[str], Optional[str], Optional[float], bool]:
+        """Extracts start_date, end_date, and days dynamically from natural language.
+
+        Supports:
+        - ISO dates: `2026-10-01`, `2026/10/01`
+        - Slash/dash dates with or without year: `10/01`, `01/10`, `10/01/2026`, `01-10-2026`
+        - Month-name dates & ranges: `Oct 1`, `October 1st, 2026`, `1 Oct`, `Oct 1 to 3`, `1 to 3 Oct`
+        - Relative dates: `today`, `tomorrow`, `next Monday`..`next Friday`
+        - Automatic computation of `end_date` from `start_date + days - 1` (e.g. "book 2 days from 10/01" -> 2026-10-01 to 2026-10-02)
+        - Automatic computation of `days` from `(end_date - start_date).days + 1` when only a date range is given.
+        """
+        import math
+        from datetime import timedelta
+
+        ref_today = reference_today or date(2026, 9, 25)
+        ref_year = ref_today.year
+        p_lower = prompt.lower()
+
+        # 1. Extract explicit duration in days if stated
+        explicit_days: Optional[float] = None
+        if re.search(r"\bhalf\s*(?:a\s*)?day\b|\bhalf-day\b|\b0\.5\s*days?\b", p_lower):
+            explicit_days = 0.5
+        else:
+            num_days_match = re.search(
+                r"\b(\d+(?:\.\d+)?)\s*(?:work\s*|working\s*|business\s*|calendar\s*)?days?\b",
+                p_lower,
+            )
+            if num_days_match:
+                explicit_days = float(num_days_match.group(1))
+            else:
+                word_days_match = re.search(
+                    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|a)\s+(?:work\s*|working\s*)?days?\b",
+                    p_lower,
+                )
+                if word_days_match:
+                    explicit_days = cls._WORD_NUMBERS.get(word_days_match.group(1), 1.0)
+                elif re.search(r"\b(?:1|one|a)\s+week\b", p_lower):
+                    explicit_days = 5.0
+                elif re.search(r"\b(?:2|two)\s+weeks\b", p_lower):
+                    explicit_days = 10.0
+
+        # 2. Extract ordered dates from the prompt
+        found_dates: List[tuple[int, date]] = []
+        occupied_spans: List[tuple[int, int]] = []
+
+        def _overlaps(s: int, e: int) -> bool:
+            return any(not (e <= os_s or s >= os_e) for os_s, os_e in occupied_spans)
+
+        def _safe_date(y: int, m: int, d: int) -> Optional[date]:
+            try:
+                return date(y, m, d)
+            except ValueError:
+                return None
+
+        # 2a. ISO YYYY-MM-DD or YYYY/MM/DD (with optional range `2026-10-01 to 03`)
+        for m in re.finditer(
+            r"\b(20\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])\b)?",
+            prompt,
+            re.I,
+        ):
+            if _overlaps(m.start(), m.end()):
+                continue
+            yr, mo, d1 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            dt1 = _safe_date(yr, mo, d1)
+            if dt1:
+                found_dates.append((m.start(), dt1))
+                if m.group(4):
+                    dt2 = _safe_date(yr, mo, int(m.group(4)))
+                    if dt2:
+                        found_dates.append((m.start() + 1, dt2))
+                occupied_spans.append((m.start(), m.end()))
+
+        # 2b. Month Name + Day (e.g. "Oct 1", "October 1st, 2026", "Oct 1 to 3")
+        month_names_pat = "|".join(cls._MONTH_MAP.keys())
+        for m in re.finditer(
+            rf"\b({month_names_pat})\.?\s+(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?)?(?:,?\s*(20\d{{2}}))?\b",
+            p_lower,
+        ):
+            if _overlaps(m.start(), m.end()):
+                continue
+            mo = cls._MONTH_MAP[m.group(1)]
+            d1 = int(m.group(2))
+            yr = int(m.group(4)) if m.group(4) else ref_year
+            dt1 = _safe_date(yr, mo, d1)
+            if dt1:
+                if not m.group(4) and dt1 < ref_today:
+                    dt1 = _safe_date(yr + 1, mo, d1) or dt1
+                found_dates.append((m.start(), dt1))
+                if m.group(3):
+                    dt2 = _safe_date(dt1.year, mo, int(m.group(3)))
+                    if dt2:
+                        found_dates.append((m.start() + 1, dt2))
+                occupied_spans.append((m.start(), m.end()))
+
+        # 2c. Day + Month Name (e.g. "1 Oct", "1st October 2026", "1 to 3 Oct")
+        for m in re.finditer(
+            rf"\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?)?\s+({month_names_pat})\.?(?:,?\s*(20\d{{2}}))?\b",
+            p_lower,
+        ):
+            if _overlaps(m.start(), m.end()):
+                continue
+            d1 = int(m.group(1))
+            mo = cls._MONTH_MAP[m.group(3)]
+            yr = int(m.group(4)) if m.group(4) else ref_year
+            dt1 = _safe_date(yr, mo, d1)
+            if dt1:
+                if not m.group(4) and dt1 < ref_today:
+                    dt1 = _safe_date(yr + 1, mo, d1) or dt1
+                found_dates.append((m.start(), dt1))
+                if m.group(2):
+                    dt2 = _safe_date(dt1.year, mo, int(m.group(2)))
+                    if dt2:
+                        found_dates.append((m.start() + 1, dt2))
+                occupied_spans.append((m.start(), m.end()))
+
+        # 2d. Numeric with year: MM/DD/YYYY or DD/MM/YYYY
+        for m in re.finditer(r"\b(\d{1,2})[-/](\d{1,2})[-/](20\d{2})\b", prompt):
+            if _overlaps(m.start(), m.end()):
+                continue
+            p1, p2, yr = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            dt_candidate: Optional[date] = None
+            if p1 > 12 and p2 <= 12:
+                dt_candidate = _safe_date(yr, p2, p1)
+            elif p2 > 12 and p1 <= 12:
+                dt_candidate = _safe_date(yr, p1, p2)
+            else:
+                mm_dd = _safe_date(yr, p1, p2)
+                dd_mm = _safe_date(yr, p2, p1)
+                if mm_dd and dd_mm:
+                    dt_candidate = dd_mm if (mm_dd < ref_today and dd_mm >= ref_today) else mm_dd
+                else:
+                    dt_candidate = mm_dd or dd_mm
+            if dt_candidate:
+                found_dates.append((m.start(), dt_candidate))
+                occupied_spans.append((m.start(), m.end()))
+
+        # 2e. Short numeric without year: MM/DD or DD/MM (e.g. "10/01", "10/15")
+        for m in re.finditer(r"(?<![\d/-])(0?[1-9]|[12]\d|3[01])/(0?[1-9]|[12]\d|3[01])(?![\d/-])", prompt):
+            if _overlaps(m.start(), m.end()):
+                continue
+            p1, p2 = int(m.group(1)), int(m.group(2))
+            if (p1, p2) == (24, 7):
+                continue
+            dt_candidate = None
+            if p1 > 12 and p2 <= 12:
+                dt_candidate = _safe_date(ref_year, p2, p1)
+            elif p2 > 12 and p1 <= 12:
+                dt_candidate = _safe_date(ref_year, p1, p2)
+            else:
+                mm_dd = _safe_date(ref_year, p1, p2)
+                dd_mm = _safe_date(ref_year, p2, p1)
+                if mm_dd and dd_mm:
+                    dt_candidate = dd_mm if (mm_dd < ref_today and dd_mm >= ref_today) else mm_dd
+                else:
+                    dt_candidate = mm_dd or dd_mm
+            if dt_candidate:
+                if dt_candidate < ref_today:
+                    dt_candidate = _safe_date(ref_year + 1, dt_candidate.month, dt_candidate.day) or dt_candidate
+                found_dates.append((m.start(), dt_candidate))
+                occupied_spans.append((m.start(), m.end()))
+
+        # 2f. Relative dates: "tomorrow", "today", "next Monday".."next Friday"
+        if not found_dates:
+            if re.search(r"\btomorrow\b", p_lower):
+                found_dates.append((0, ref_today + timedelta(days=1)))
+            elif re.search(r"\btoday\b", p_lower) and any(
+                w in p_lower for w in ("leave", "off", "sick", "vacation", "pto")
+            ):
+                found_dates.append((0, ref_today))
+            else:
+                weekdays = {
+                    "monday": 0, "tuesday": 1, "wednesday": 2,
+                    "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6,
+                }
+                wd_m = re.search(
+                    r"\b(?:next|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+                    p_lower,
+                )
+                if wd_m:
+                    target_wd = weekdays[wd_m.group(1)]
+                    days_ahead = (target_wd - ref_today.weekday()) % 7
+                    if days_ahead == 0:
+                        days_ahead = 7
+                    found_dates.append((wd_m.start(), ref_today + timedelta(days=days_ahead)))
+
+        found_dates.sort(key=lambda item: item[0])
+        ordered_dates = [d for _, d in found_dates]
+
+        if len(ordered_dates) >= 2:
+            s_dt, e_dt = ordered_dates[0], ordered_dates[1]
+            if explicit_days is not None:
+                calc_days = explicit_days
+            elif e_dt >= s_dt:
+                calc_days = float((e_dt - s_dt).days + 1)
+            else:
+                calc_days = default_days if default_days is not None else 1.0
+            return s_dt.isoformat(), e_dt.isoformat(), calc_days, True
+
+        if len(ordered_dates) == 1:
+            s_dt = ordered_dates[0]
+            calc_days = explicit_days if explicit_days is not None else (default_days if default_days is not None else 1.0)
+            span_int = max(1, int(math.ceil(calc_days)))
+            e_dt = s_dt + timedelta(days=span_int - 1)
+            return s_dt.isoformat(), e_dt.isoformat(), calc_days, True
+
+        return default_start, default_end, (explicit_days if explicit_days is not None else default_days), False
+
+    @classmethod
     def _extract_dates_and_days(
+        cls,
         prompt: str,
         default_start: str = "2026-10-15",
         default_end: str = "2026-10-16",
         default_days: float = 2.0,
     ) -> tuple[str, str, float]:
-        dates = re.findall(r"\b(\d{4}-\d{2}-\d{2})\b", prompt)
-        if len(dates) >= 2:
-            start_dt, end_dt = dates[0], dates[1]
-        elif len(dates) == 1:
-            start_dt = end_dt = dates[0]
-        else:
-            start_dt, end_dt = default_start, default_end
-        days_match = re.search(r"(\d+(?:\.\d+)?)\s*days?", prompt.lower())
-        days_val = float(days_match.group(1)) if days_match else default_days
-        return start_dt, end_dt, days_val
+        start_dt, end_dt, days_val, _ = cls._parse_flexible_dates_and_duration(
+            prompt,
+            default_start=default_start,
+            default_end=default_end,
+            default_days=default_days,
+        )
+        return (
+            start_dt or default_start,
+            end_dt or default_end,
+            days_val if days_val is not None else default_days,
+        )
+
+    def _query_gemini_agent_brain(
+        self,
+        user_prompt: str,
+        *,
+        reference_today: date = date(2026, 9, 25),
+    ) -> Optional[Dict[str, Any]]:
+        """Uses Gemini (google.genai) when enabled to classify user intent and extract tool parameters dynamically."""
+        import json
+        import os
+
+        if os.environ.get("PYTEST_CURRENT_TEST") and os.environ.get("ENABLE_LIVE_LLM_IN_TESTS") != "1":
+            return None
+        if os.environ.get("USE_LLM_BRAIN", "true").strip().lower() in ("0", "false", "no", "off"):
+            return None
+
+        try:
+            from google import genai  # type: ignore
+            from google.genai import types as g_types  # type: ignore
+            from app.config.env_config import get_gcp_project_id, get_vertex_rag_location
+
+            model_id = FLASH_MODEL_ID
+            if model_id.startswith("gemini-3."):
+                model_id = "gemini-2.5-flash"
+
+            client = genai.Client(
+                vertexai=True,
+                project=get_gcp_project_id(),
+                location=get_vertex_rag_location(),
+            )
+            sys_instruction = (
+                f"You are the Agent Brain for Altostrat Singapore's HR & IT Multi-Agent Assistant. "
+                f"Today's date is {reference_today.isoformat()} (Year {reference_today.year}). "
+                "Analyze the user message and return a JSON object with:\n"
+                "- `intent`: one of ['submit_leave', 'cancel_leave', 'get_leave_balance', 'get_leave_requests', "
+                "'get_profile', 'get_personal_info', 'update_contact', 'create_incident', 'list_tickets', "
+                "'get_ticket', 'add_comment', 'update_status', 'search_policy', 'other']\n"
+                "- `leave_type`: 'Vacation' or 'Sick' (if intent is submit_leave)\n"
+                "- `start_date`: ISO YYYY-MM-DD start date if any date is mentioned in the prompt, else null. "
+                "If user writes 'book 2 days from 10/01', start_date is '2026-10-01' and end_date is '2026-10-02' (days=2.0).\n"
+                "- `end_date`: ISO YYYY-MM-DD end date if mentioned or inferable from start_date + days - 1, else null.\n"
+                "- `days`: float number of leave days requested or computed from (end_date - start_date + 1), else null.\n"
+                "- `category`: 'IT', 'Facilities', or 'HRSD' (if intent is create_incident)\n"
+                "- `priority`: '1 - Critical', '2 - High', '3 - Moderate', or '4 - Low' (if intent is create_incident)\n"
+                "- `short_description`: concise summary for ticket creation\n"
+                "- `address`: extracted new physical address if intent is update_contact, else null\n"
+                "- `phone`: extracted new phone number if intent is update_contact, else null"
+            )
+            resp = client.models.generate_content(
+                model=model_id,
+                contents=user_prompt,
+                config=g_types.GenerateContentConfig(
+                    system_instruction=sys_instruction,
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
+            )
+            raw_text = (resp.text or "").strip()
+            if raw_text:
+                parsed = json.loads(raw_text)
+                if isinstance(parsed, dict):
+                    return parsed
+        except Exception:
+            pass
+        return None
 
     def run_turn(
         self,
@@ -364,6 +679,14 @@ class HRMultiAgentRuntime:
             "approve",
             "ok",
             "yes please",
+            "yes, please confirm and proceed",
+            "yes, confirm and submit",
+            "sure",
+            "go ahead",
+            "confirmed",
+        ) or (
+            len(stripped_prompt.split()) <= 7
+            and stripped_prompt.startswith(("yes", "confirm", "approve", "proceed"))
         )
         is_negative_reply = stripped_prompt in (
             "no",
@@ -380,6 +703,7 @@ class HRMultiAgentRuntime:
         # B-3 Multi-Turn Confirmation State Machine (state["pending_confirmation"])
         # ---------------------------------------------------------------------
         pending_conf = state.get("pending_confirmation")
+        restored_tool_args: Optional[Dict[str, Any]] = None
         if pending_conf is not None:
             if is_negative_reply:
                 cancelled_action = pending_conf.get("action", "write_action")
@@ -402,6 +726,7 @@ class HRMultiAgentRuntime:
                 )
             if is_affirmative_reply or confirmed:
                 state["pending_confirmation"] = None
+                restored_tool_args = pending_conf.get("tool_args")
                 orig_prompt = pending_conf.get("original_prompt", "")
                 orig_asserted = bool(pending_conf.get("user_asserted_resolution", user_asserted_resolution))
                 if orig_prompt:
@@ -847,7 +1172,7 @@ class HRMultiAgentRuntime:
 
             existing_saga_id = state.get("active_saga_id")
             existing_saga = self.ledger.get_saga(existing_saga_id) if existing_saga_id else None
-            if existing_saga and existing_saga.state == SagaState.PENDING:
+            if existing_saga and existing_saga.state == SagaState.OPEN:
                 saga = existing_saga
             else:
                 saga = self.ledger.open_saga(authenticated_employee_id, "UC-2.2_MEDICAL_LEAVE")
@@ -1250,6 +1575,8 @@ class HRMultiAgentRuntime:
             k in prompt_lower
             for k in (
                 "show my profile",
+                "employee profile",
+                "work arrangement",
                 "my workweek profile",
                 "get my profile",
                 "what is my location status",
@@ -1281,27 +1608,57 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        if any(
-            k in prompt_lower
-            for k in (
-                "update my contact",
-                "update my address",
-                "change my address",
-                "update my phone",
-                "change my phone",
-                "update_contact",
+        # Query Gemini Agent Brain (when active) for intent and argument extraction
+        llm_brain = self._query_gemini_agent_brain(user_prompt) or {}
+        brain_intent = str(llm_brain.get("intent") or "").strip().lower()
+
+        # Check if user is replying with dates to a previous leave booking turn where dates were missing
+        pending_leave_draft = state.get("pending_leave_draft")
+        _, _, _, prompt_has_dates = self._parse_flexible_dates_and_duration(user_prompt)
+
+        if (
+            (restored_tool_args and pending_conf and pending_conf.get("action") == "update_contact")
+            or brain_intent == "update_contact"
+            or any(
+                k in prompt_lower
+                for k in (
+                    "update my contact",
+                    "update my address",
+                    "change my address",
+                    "update my phone",
+                    "change my phone",
+                    "my new address",
+                    "my new phone",
+                    "moved to",
+                    "update_contact",
+                )
             )
         ):
-            addr_match = re.search(r"(?:address\s+to|address\s*:)\s*([^\.;]+)", user_prompt, re.I)
-            phone_match = re.search(r"(\+\d[\d\s\-]{7,14}\d)", user_prompt)
-            new_addr = addr_match.group(1).strip() if addr_match else (
-                "88 Marina Blvd, Singapore 018981" if "address" in prompt_lower else ""
-            )
-            new_phone = phone_match.group(1).strip() if phone_match else (
-                "+65 9888 7766" if "phone" in prompt_lower else ""
-            )
-            if not new_addr and not new_phone:
-                new_addr = "88 Marina Blvd, Singapore 018981"
+            if restored_tool_args and pending_conf and pending_conf.get("action") == "update_contact":
+                new_addr = str(restored_tool_args.get("address", ""))
+                new_phone = str(restored_tool_args.get("phone", ""))
+            else:
+                addr_match = re.search(
+                    r"(?:address\s+(?:is|to)|moved\s+to|live\s+at|address\s*:)\s*([^\.;]+)",
+                    user_prompt,
+                    re.I,
+                )
+                phone_match = re.search(r"(\+?\d[\d\s\-]{7,14}\d)", user_prompt)
+                new_addr = (
+                    str(llm_brain.get("address") or "").strip()
+                    or (addr_match.group(1).strip() if addr_match else "")
+                )
+                new_phone = (
+                    str(llm_brain.get("phone") or "").strip()
+                    or (phone_match.group(1).strip() if phone_match else "")
+                )
+                if not new_addr and not new_phone:
+                    if "address" in prompt_lower:
+                        new_addr = "88 Marina Blvd, Singapore 018981"
+                    elif "phone" in prompt_lower:
+                        new_phone = "+65 9888 7766"
+                    else:
+                        new_addr = "88 Marina Blvd, Singapore 018981"
 
             upd_c_res = self._call_subagent_tool(
                 agent=workweek_agent,
@@ -1318,6 +1675,7 @@ class HRMultiAgentRuntime:
                 events.append({"type": "STATE_DELTA", "confirmation_card": confirmation_card})
                 state["pending_confirmation"] = {
                     "action": "update_contact",
+                    "tool_args": {"address": new_addr, "phone": new_phone},
                     "original_prompt": user_prompt,
                 }
                 text = upd_c_res["user_message"]
@@ -1339,13 +1697,137 @@ class HRMultiAgentRuntime:
                 blocked=is_denied_contact,
             )
 
-        if "submit" in prompt_lower and ("time-off" in prompt_lower or "time off" in prompt_lower or "leave" in prompt_lower):
-            start_dt, end_dt, days_val = self._extract_dates_and_days(
-                user_prompt,
-                default_start="2026-10-15",
-                default_end="2026-10-16",
-                default_days=2.0,
+        # ---------------------------------------------------------------------
+        # Agent-Driven Leave Booking (`submit_leave` via WorkWeek Agent)
+        # ---------------------------------------------------------------------
+        is_policy_question = any(
+            q in prompt_lower
+            for q in (
+                "what is the policy",
+                "what is our policy",
+                "policy on",
+                "policy for",
+                "how many days of",
+                "how much leave",
+                "accrual schedule",
+                "carry over",
+                "carryover",
+                "encash",
+                "handbook",
+                "bereavement",
+                "maternity",
+                "paternity",
+                "baby bonding",
+                "childcare",
             )
+        ) and not any(v in prompt_lower for v in ("submit", "book", "apply"))
+
+        has_leave_booking_verb = any(
+            re.search(rf"\b{v}\b", prompt_lower)
+            for v in (
+                "submit",
+                "book",
+                "booking",
+                "request",
+                "requesting",
+                "apply",
+                "applying",
+                "take",
+                "taking",
+                "schedule",
+                "scheduling",
+                "file",
+                "filing",
+                "log",
+                "logging",
+            )
+        )
+        has_leave_noun = any(
+            n in prompt_lower
+            for n in (
+                "leave",
+                "time-off",
+                "time off",
+                "vacation",
+                "pto",
+                "annual leave",
+                "sick leave",
+                "day off",
+                "days off",
+            )
+        )
+        # Also match concise booking phrases like "book 2 days from 10/01" or "take 3 days from Oct 5"
+        has_verb_plus_days_and_date = (
+            has_leave_booking_verb
+            and prompt_has_dates
+            and bool(re.search(r"\b(?:\d+|one|two|three|four|five|half)\s*(?:work\s*)?days?\b", prompt_lower))
+        )
+
+        is_leave_booking_turn = (
+            (restored_tool_args is not None and pending_conf is not None and pending_conf.get("action") == "submit_leave")
+            or brain_intent == "submit_leave"
+            or (pending_leave_draft is not None and prompt_has_dates)
+            or (not is_policy_question and ((has_leave_booking_verb and has_leave_noun) or has_verb_plus_days_and_date))
+        )
+
+        if is_leave_booking_turn:
+            import math
+            from datetime import timedelta
+
+            if restored_tool_args and pending_conf and pending_conf.get("action") == "submit_leave":
+                start_dt = str(restored_tool_args["start_date"])
+                end_dt = str(restored_tool_args["end_date"])
+                days_val = float(restored_tool_args["days"])
+                leave_type = str(restored_tool_args.get("leave_type", "Vacation"))
+            else:
+                draft_days = (
+                    float(pending_leave_draft["days"])
+                    if (pending_leave_draft and pending_leave_draft.get("days") is not None)
+                    else None
+                )
+                parsed_start, parsed_end, parsed_days, has_resolved_dates = self._parse_flexible_dates_and_duration(
+                    user_prompt,
+                    default_start=None,
+                    default_end=None,
+                    default_days=draft_days,
+                )
+                # Merge with Gemini Agent Brain output if available
+                if not has_resolved_dates and llm_brain.get("start_date"):
+                    parsed_start = str(llm_brain["start_date"])
+                    parsed_end = str(llm_brain.get("end_date") or parsed_start)
+                    has_resolved_dates = True
+                if parsed_days is None and llm_brain.get("days") is not None:
+                    try:
+                        parsed_days = float(llm_brain["days"])
+                    except (TypeError, ValueError):
+                        pass
+
+                days_val = parsed_days if parsed_days is not None else (draft_days if draft_days is not None else 1.0)
+                leave_type = (
+                    str(llm_brain.get("leave_type")).capitalize()
+                    if llm_brain.get("leave_type") in ("Vacation", "Sick", "vacation", "sick")
+                    else (
+                        "Sick"
+                        if ("sick" in prompt_lower or (pending_leave_draft and pending_leave_draft.get("leave_type") == "Sick"))
+                        else "Vacation"
+                    )
+                )
+
+                if has_resolved_dates and parsed_start:
+                    start_dt = parsed_start
+                    end_dt = parsed_end or parsed_start
+                    state["pending_leave_draft"] = None
+                else:
+                    # User specified intent/duration without a date: propose next eligible window (15d notice)
+                    # and remember draft in case the user replies with custom dates on the next turn.
+                    ref_start = date(2026, 10, 15)
+                    span_int = max(1, int(math.ceil(days_val)))
+                    start_dt = ref_start.isoformat()
+                    end_dt = (ref_start + timedelta(days=span_int - 1)).isoformat()
+                    state["pending_leave_draft"] = {
+                        "days": days_val,
+                        "leave_type": leave_type,
+                    }
 
             bal_res = self._call_subagent_tool(
                 agent=workweek_agent,
@@ -1362,7 +1844,7 @@ class HRMultiAgentRuntime:
                 args={
                     "start_date": start_dt,
                     "end_date": end_dt,
-                    "leave_type": "Vacation",
+                    "leave_type": leave_type,
                     "days": days_val,
                     "confirmed": is_confirmation_turn,
                 },
@@ -1377,6 +1859,12 @@ class HRMultiAgentRuntime:
                 events.append({"type": "STATE_DELTA", "confirmation_card": confirmation_card})
                 state["pending_confirmation"] = {
                     "action": "submit_leave",
+                    "tool_args": {
+                        "start_date": start_dt,
+                        "end_date": end_dt,
+                        "leave_type": leave_type,
+                        "days": days_val,
+                    },
                     "original_prompt": user_prompt,
                 }
                 text = sub_res["user_message"]
@@ -1386,10 +1874,11 @@ class HRMultiAgentRuntime:
                 text = sub_res["user_message"]
             else:
                 state["pending_confirmation"] = None
+                state["pending_leave_draft"] = None
                 req_id = str(sub_res.get("request_id", "LR-88201"))
                 state["last_submitted_leave_id"] = req_id
                 text = (
-                    f"Submitted your Vacation request ({days_val} days, {start_dt} to {end_dt}). "
+                    f"Submitted your {leave_type} request ({days_val} days, {start_dt} to {end_dt}). "
                     f"Reference **{req_id}**."
                 )
             return self._finalize_turn(
@@ -1406,7 +1895,7 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # UC-1.3: ServiceImmediately ITSM Single-Domain Operations (All 5 ITSM Tools)
         # ---------------------------------------------------------------------
-        if any(
+        if brain_intent == "list_tickets" or any(
             k in prompt_lower
             for k in (
                 "list my tickets",
@@ -1414,6 +1903,8 @@ class HRMultiAgentRuntime:
                 "show my tickets",
                 "my open tickets",
                 "what tickets do i have",
+                "my tickets",
+                "open incidents",
                 "list_tickets",
             )
         ):
@@ -1442,7 +1933,12 @@ class HRMultiAgentRuntime:
             )
 
         inc_match = re.search(r"\b(INC[-_]?\d+)\b", user_prompt, re.I)
-        if inc_match and ("comment" in prompt_lower or "add a note" in prompt_lower or "reply to ticket" in prompt_lower):
+        if inc_match and (
+            brain_intent == "add_comment"
+            or "comment" in prompt_lower
+            or "add a note" in prompt_lower
+            or "reply to ticket" in prompt_lower
+        ):
             t_id = inc_match.group(1).upper()
             cmt_res = self._call_subagent_tool(
                 agent=service_immediately_agent,
@@ -1462,6 +1958,7 @@ class HRMultiAgentRuntime:
                 events.append({"type": "STATE_DELTA", "confirmation_card": confirmation_card})
                 state["pending_confirmation"] = {
                     "action": "add_comment",
+                    "tool_args": {"ticket_id": t_id, "comment": user_prompt},
                     "original_prompt": user_prompt,
                 }
                 text = cmt_res["user_message"]
@@ -1479,7 +1976,8 @@ class HRMultiAgentRuntime:
             )
 
         if inc_match and (
-            "close" in prompt_lower
+            brain_intent == "update_status"
+            or "close" in prompt_lower
             or "resolve" in prompt_lower
             or "in progress" in prompt_lower
         ):
@@ -1510,6 +2008,7 @@ class HRMultiAgentRuntime:
                 events.append({"type": "STATE_DELTA", "confirmation_card": confirmation_card})
                 state["pending_confirmation"] = {
                     "action": "update_status",
+                    "tool_args": {"ticket_id": t_id, "new_status": target_state},
                     "original_prompt": user_prompt,
                     "user_asserted_resolution": user_asserted_resolution,
                 }
@@ -1530,7 +2029,13 @@ class HRMultiAgentRuntime:
                 blocked=is_denied_status,
             )
 
-        if inc_match and ("status" in prompt_lower or "check" in prompt_lower or "details" in prompt_lower):
+        if inc_match and (
+            brain_intent == "get_ticket"
+            or "status" in prompt_lower
+            or "check" in prompt_lower
+            or "details" in prompt_lower
+            or "show" in prompt_lower
+        ):
             t_id = inc_match.group(1).upper()
             t_res = self._call_subagent_tool(
                 agent=service_immediately_agent,
@@ -1557,15 +2062,51 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        if "create an it ticket" in prompt_lower or "squeak" in prompt_lower or "vpn" in prompt_lower:
-            prio = "1 - Critical" if "critical" in prompt_lower else "3 - Moderate"
-            cat = "Facilities" if "chair" in prompt_lower else "IT"
+        is_ticket_creation = (
+            (restored_tool_args is not None and pending_conf is not None and pending_conf.get("action") == "create_incident")
+            or brain_intent == "create_incident"
+            or "create an it ticket" in prompt_lower
+            or "squeak" in prompt_lower
+            or "vpn" in prompt_lower
+            or (
+                any(v in prompt_lower for v in ("open a", "raise a", "create a", "submit a", "file a", "log a", "report a"))
+                and any(n in prompt_lower for n in ("ticket", "incident", "issue", "request"))
+                and not is_policy_question
+            )
+            or (
+                any(hw in prompt_lower for hw in ("laptop", "wifi", "wi-fi", "keyboard", "mouse", "badge", "aircon", "printer"))
+                and any(prob in prompt_lower for prob in ("broken", "not working", "disconnecting", "flickering", "issue", "ticket", "fix", "help"))
+                and not is_policy_question
+            )
+        )
+        if is_ticket_creation:
+            if restored_tool_args and pending_conf and pending_conf.get("action") == "create_incident":
+                cat = str(restored_tool_args.get("category", "IT"))
+                prio = str(restored_tool_args.get("priority", "3 - Moderate"))
+                short_desc = str(restored_tool_args.get("short_description", user_prompt))
+            else:
+                prio = (
+                    str(llm_brain.get("priority"))
+                    if llm_brain.get("priority") in ("1 - Critical", "2 - High", "3 - Moderate", "4 - Low")
+                    else ("1 - Critical" if "critical" in prompt_lower else "3 - Moderate")
+                )
+                cat = (
+                    str(llm_brain.get("category"))
+                    if llm_brain.get("category") in ("IT", "Facilities", "HRSD")
+                    else (
+                        "Facilities"
+                        if any(w in prompt_lower for w in ("chair", "desk", "badge", "building", "aircon", "facilities"))
+                        else ("HRSD" if "hrsd" in prompt_lower else "IT")
+                    )
+                )
+                short_desc = str(llm_brain.get("short_description") or user_prompt)
+
             inc_res = self._call_subagent_tool(
                 agent=service_immediately_agent,
                 tool_fn=create_incident,
                 args={
                     "category": cat,
-                    "short_description": user_prompt,
+                    "short_description": short_desc,
                     "priority": prio,
                     "confirmed": is_confirmation_turn,
                 },
@@ -1579,6 +2120,11 @@ class HRMultiAgentRuntime:
                 events.append({"type": "STATE_DELTA", "confirmation_card": confirmation_card})
                 state["pending_confirmation"] = {
                     "action": "create_incident",
+                    "tool_args": {
+                        "category": cat,
+                        "short_description": short_desc,
+                        "priority": prio,
+                    },
                     "original_prompt": user_prompt,
                 }
                 text = inc_res["user_message"]

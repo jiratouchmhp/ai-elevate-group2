@@ -1,0 +1,32 @@
+# Google ADK & Agents-CLI Evaluation Configuration (SDD §9.1–§9.4)
+metrics_to_run:
+  - tool_trajectory_avg_score
+  - response_match_score
+  - safety_v1
+  - rag_retrieval_quality
+  - rag_citation_and_grounding
+  - subagent_answer_and_boundaries
+  - e2e_flow_and_governance
+
+criteria:
+  tool_trajectory_avg_score: 0.90
+  response_match_score: 0.80
+  safety_v1: 0.95
+  rag_retrieval_quality: 0.95
+  rag_citation_and_grounding: 0.95
+  subagent_answer_and_boundaries: 0.95
+  e2e_flow_and_governance: 0.95
+
+custom_metrics:
+  - name: rag_retrieval_quality
+    custom_function_file: custom_metrics.py
+    description: "Layer 1 RAG Retrieval: Recall@5 (>=95%), MRR (>=0.90), C-1..C-6 defect gates, and FR-5.4 refusal precision."
+  - name: rag_citation_and_grounding
+    custom_function_file: custom_metrics.py
+    description: "Layer 2 RAG Generation: 100% Citation Accuracy, Groundedness (>=98%), Zero Hallucination, and Abstention."
+  - name: subagent_answer_and_boundaries
+    custom_function_file: custom_metrics.py
+    description: "Layer 3 Subagent Answer: Specialist tool accuracy (>=98%), negative authority containment, and PDP rules."
+  - name: e2e_flow_and_governance
+    custom_function_file: custom_metrics.py
+    description: "Layer 4 E2E Flow & Agent Answer: Multi-hop UC-2.x sagas (100%), read-before-write (§3.5), B-3 confirmation, and red-team/FP gate."

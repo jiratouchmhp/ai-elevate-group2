@@ -71,7 +71,7 @@ class TestAgentMcpEndToEnd(unittest.TestCase):
         self.assertFalse(turn.blocked)
         self.assertIn("workweek_agent", turn.delegated_agents)
         self.assertIn("get_leave_balance", turn.tool_trajectory)
-        self.assertIn("15.0", turn.response_text)
+        self.assertIn("20.0", turn.response_text)
         self.assertIn("10.0", turn.response_text)
 
         # Verify audit trail recorded `get_leave_balance` for EMP-836

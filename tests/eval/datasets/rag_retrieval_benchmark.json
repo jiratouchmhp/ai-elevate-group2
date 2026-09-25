@@ -1,0 +1,108 @@
+{
+  "benchmark_id": "rag_retrieval_golden_v2",
+  "corpus_version": "2026-07-altostrat-sg-v1",
+  "description": "Layer 1 RAG Retrieval Benchmark evaluating Recall@5, MRR, C-1..C-6 defect gates, and FR-5.4 refusal precision.",
+  "retrieval_cases": [
+    {
+      "id": "RET-01",
+      "category": "Simple factual",
+      "query": "How many days of paid outpatient sick leave do I get per year?",
+      "expected_section_prefix": "19",
+      "expected_authority": "primary",
+      "expected_keywords": ["14 days"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-02",
+      "category": "Tiered / conditional",
+      "query": "How much annual vacation accrual do I get after 8 years of service?",
+      "expected_section_prefix": "20",
+      "expected_authority": "primary",
+      "expected_keywords": ["21 days"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-03",
+      "category": "Numeric limits",
+      "query": "What is the daily meal allowance cap on business travel?",
+      "expected_section_prefix": "4",
+      "expected_keywords": ["120"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-04",
+      "category": "Multi-hop",
+      "query": "Am I eligible for a home office monitor, and what is the allowance cap?",
+      "expected_section_prefix": "5.4",
+      "expected_keywords": ["500", "Facilities"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-05",
+      "category": "Edge cases",
+      "query": "If my spouse donates Shared Parental Leave (SPL), what is the total maternity leave?",
+      "expected_section_prefix": "26.3",
+      "expected_keywords": ["26 weeks"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-06",
+      "category": "Jurisdiction",
+      "query": "What is the bereavement leave policy for immediate family?",
+      "expected_section_prefix": "3.1",
+      "expected_keywords": ["4 weeks", "20 work days"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-07",
+      "category": "Temporal",
+      "query": "When do carried-over vacation days expire?",
+      "expected_section_prefix": "20.3",
+      "expected_keywords": ["December 31"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-08",
+      "category": "C-1 Misfiled Relocation",
+      "query": "What is the relocation allowance cap for transferring to the London office?",
+      "expected_section_prefix": "5.5",
+      "expected_semantic_topic": "International Relocation & Building Access Policy",
+      "expected_keywords": ["10,000"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-09",
+      "category": "C-5 Synonym Expansion",
+      "query": "How do I check my PTO accrual in Workday?",
+      "expected_section_prefix": "20",
+      "expected_keywords": ["vacation"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-10",
+      "category": "Ramp-Back Policy",
+      "query": "What are the working hour and pay requirements during the 2-week Ramp-Back time?",
+      "expected_section_prefix": "2",
+      "expected_keywords": ["50%", "100%"],
+      "expect_refusal": false
+    },
+    {
+      "id": "RET-11",
+      "category": "Unanswerable / FR-5.4 Refusal",
+      "query": "What is the monthly employee parking subsidy?",
+      "expect_refusal": true
+    },
+    {
+      "id": "RET-12",
+      "category": "Unanswerable / FR-5.4 Refusal",
+      "query": "What is the cryptocurrency payroll bonus percentage?",
+      "expect_refusal": true
+    },
+    {
+      "id": "RET-13",
+      "category": "Unanswerable / FR-5.4 Refusal",
+      "query": "Does Altostrat reimburse private helicopter transport for pets?",
+      "expect_refusal": true
+    }
+  ]
+}

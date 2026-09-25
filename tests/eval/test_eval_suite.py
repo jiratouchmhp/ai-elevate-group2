@@ -85,6 +85,33 @@ class TestEvaluationReleaseGate(unittest.TestCase):
         # Verify 100% audit log coverage (every allowed and blocked turn recorded)
         self.assertGreaterEqual(len(self.runtime.audit.records), len(cases))
 
+    def test_adk_4pillar_evaluation_release_gates(self) -> None:
+        """Verifies all 4 Google ADK evaluation pillars (RAG Retrieval, RAG Generation, Subagents, E2E)."""
+        import asyncio
+        from tests.eval.adk_eval_runner import (
+            run_pillar_1_rag_retrieval,
+            run_pillar_2_rag_generation,
+            run_pillar_3_subagents,
+            run_pillar_4_e2e,
+        )
+
+        p1 = run_pillar_1_rag_retrieval()
+        for m_name, m_val in p1["metrics"].items():
+            self.assertTrue(m_val["passed"], f"Pillar 1 metric {m_name} failed: {m_val}")
+
+        p2 = asyncio.run(run_pillar_2_rag_generation())
+        for m_name, m_val in p2["adk_evalset"]["summary_metrics"].items():
+            self.assertTrue(m_val["passed"], f"Pillar 2 metric {m_name} failed: {m_val}")
+
+        p3 = asyncio.run(run_pillar_3_subagents())
+        for sub_name, sub_res in p3["subagents"].items():
+            for m_name, m_val in sub_res["summary_metrics"].items():
+                self.assertTrue(m_val["passed"], f"Pillar 3 ({sub_name}) metric {m_name} failed: {m_val}")
+
+        p4 = asyncio.run(run_pillar_4_e2e())
+        for m_name, m_val in p4["adk_evalset"]["summary_metrics"].items():
+            self.assertTrue(m_val["passed"], f"Pillar 4 metric {m_name} failed: {m_val}")
+
 
 if __name__ == "__main__":
     unittest.main()

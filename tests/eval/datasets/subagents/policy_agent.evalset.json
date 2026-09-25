@@ -1,0 +1,130 @@
+{
+  "eval_set_id": "subagent_policy_evalset",
+  "name": "Pillar 3a: policy_agent Isolated Subagent Evaluation",
+  "description": "Direct isolated evaluation of policy_agent tool invocations, citation grounding, negative authority (0 write tools), and domain abstention.",
+  "eval_cases": [
+    {
+      "eval_id": "sub_policy_bereavement",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_bereavement",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "What is the bereavement leave policy?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "According to **Bereavement Leave** (Section `3.1`, anchor `sec-3-1-bereavement-leave#d59a2095`):\n\n[Parent Section: OTHER COMPASSIONATE & UNPAID LEAVES | Subsection 3.1: Bereavement Leave (Global)]\nPaid bereavement leave is provided to support employees during times of grief.\n\n* **Allowance:** Employees can take up to **4 weeks (20 work days for a standard 5-day schedule) of paid leave per event**. This applies to the loss of a close loved one, including pregnancy loss (miscarriage or stillbirth).  \n* **Timeline:** Bereavement leave must be taken **within 12 months of the death**.  \n* **Pet Loss:** Paid bereavement leave does not apply to pet loss. Vacation, unpaid time off, or flexible schedules should be arranged with managers in those instances.\n\n[Parent Section: BEREAVEMENT LEAVE (GLOBAL) | Subsection 22.2: Allowance and Timelines]\n* **Duration:** You can take up to 4 weeks of paid bereavement leave per event. Leave is counted in work days based on your regular work schedule (for example, if you work 40 hours over 5 days per week, you can take up to 20 work days). The 4 weeks offered are inclusive of all local leave requirements.  \n* **Timeline:** Bereavement leave must be taken within 12 months of a death. Exceptions may be possible where religious, spiritual, or cultural practices require funeral rites or rituals to take place at a later time.\n\n[Parent Section: FAMILY-BUILDING & TRANSITION LEAVES | Subsection 2.1: Maternity Leave (Singapore)]\nPaid maternity leave is offered to support pregnancy, recovery from childbirth, and infant bonding.\n\n* **Duration:** Effective 1 April 2026, all eligible employees are entitled to **24 weeks of paid parental leave**.  \n* **Shared Parental Leave (SPL) Extension:** Under Phase 2 of Singapore\u2019s MSF scheme, parents of Singaporean children born on or after 1 April 2026 are entitled to 10 weeks of shared parental leave (default split is 5 weeks for each parent).  \n  * **SPL Donation:** If your spouse donates their portion (up to 10 weeks) of SPL to you, your total paid maternity leave can be extended to **25 or 26 weeks**.  \n  * **SPL Allocation Audit:** Regardless of the split, you must submit proof of the official SPL allocation from LifeSG within 4 weeks of birth/adoption for record-keeping and statutory audits.  \n  * **Moms Donating SPL:** If you donate your portion of SPL to your spouse, your Altostrat maternity leave is *not* reduced below the 24-week baseline, as company benefits are already inclusive of and exceed statutory limits.  \n* **Interns:** Eligible interns who have served for a continuous period of at least 3 months are entitled to **16 weeks of statutory maternity leave**, which must be taken consecutively. Interns whose spouses donate SPL can extend their leave up to 26 weeks.  \n* **Administrative Procedures:**  \n  * Maternity leave can begin up to **28 days before your expected due date**.  \n  * The first **8 weeks (56 days) must be taken consecutively**. The remaining 16 weeks (80 working days) can be taken flexibly in daily increments over a 12-month period following the child's birth.  \n  * Maternity leave must be logged in WorkWeek using two separate codes: *\"Singapore Leaves \\> SG \\- Maternity Leave (First 8 weeks)\"* and *\"Singapore Leaves \\> SG \\- Maternity Leave (80 working days)\"*.\n\n[Parent Section: FAMILY-BUILDING & TRANSITION LEAVES | Subsection 2.2: Baby Bonding Leave (Global)]\nBaby Bonding Leave (BBL) is available to spent time with a new child welcomed through childbirth, adoption, surrogacy, or fostering (for parents who do not take maternity leave).\n\n* **Allowance:** Eligible employees can take up to **18 weeks (90 work days) of paid leave** per year. Even if multiple children are welcomed at once, only one 18-week period can be claimed.  \n* **Timelines:** BBL must begin on or after the child's birth/placement date and be **fully utilized within 12 months** of that date, or any remaining balance is forfeited. It can be taken all at once or in weekly blocks.  \n* **Shared Parental Leave Impact (Singapore):** Your baby bonding leave remains at 18 weeks regardless of the SPL sharing arrangement with your spouse. However, if both parents are Altostrat employees and the father allocates SPL to his partner, his BBL must be reduced to 16 or 17 weeks depending on the allocation, subject to periodic audits.  \n* **Monetary Benefit:** Employees taking BBL are eligible for a monetary baby bonding benefit to spend on meals, cleaning, laundry, or gardening.\n\n[Parent Section: BABY BONDING LEAVE (GLOBAL) | Subsection 26.2: Leave Allowance and Timelines]\n* **Duration:** Eligible employees can take up to 18 weeks (90 work days) of paid leave per year. This leave is inclusive of all local statutory leave entitlements, such as statutory paternity leave.  \n* **Multiples:** If you welcome multiple children at the same time (e.g., birth of multiples or simultaneous adoptions), you can take only one 18-week period of bonding leave.  \n* **Timeline:** Leave can start on or after your child's birth, adoption, or foster placement date. You must use all 18 weeks of leave within 12 months of that date; any remaining leave will be lost.  \n* **Increments:** Leave is counted in work days based on your regular schedule, and you can take it all at once or in weekly blocks."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {
+                  "query": "What is the bereavement leave policy?",
+                  "jurisdiction": "SG"
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "sub_policy_spl_maternity",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_spl",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "If my spouse donates Shared Parental Leave (SPL), what is the total maternity leave?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "According to **Singapore Shared Parental Leave (SPL) Scenarios** (Section `26.3`, anchor `sec-26-3-singapore-shared-parental-leave-spl-scenarios#b710f11c`):\n\n[Parent Section: BABY BONDING LEAVE (GLOBAL) | Subsection 26.3: Singapore Shared Parental Leave (SPL) Scenarios]\nEffective April 1, 2026, the Singapore SPL scheme provides 10 weeks of parental leave. The company's 18-week Baby Bonding Leave is inclusive of these statutory entitlements.\n\n* **Googler Father \\+ Non-Googler Mother:** The father's total entitlement remains 18 weeks, regardless of how the SPL is shared.  \n* **Non-Googler Father \\+ Googler Mother:** If the partner donates 9 or 10 weeks of SPL, the mother's Maternity Leave may be extended to 25 or 26 weeks.  \n* **Both Parents are Googlers:** If the birthing parent utilizes SPL to extend their Maternity Leave, the father's Baby Bonding Leave remains 18 weeks and is not reduced. Conversely, if the birthing parent donates SPL to the father, the father's Baby Bonding Leave remains 18 weeks and the birthing parent's Maternity Leave remains 24 weeks.  \n* **Verification:** To ensure compliance, you must submit your SPL arrangement via LifeSG and provide a copy to the company for verification.\n\n[Parent Section: MATERNITY LEAVE (SINGAPORE) | Subsection 27.2: Duration and Shared Parental Leave (SPL)]\n* **Standard Allowance:** Effective April 1, 2026, all eligible employees are entitled to 24 weeks of paid maternity leave.  \n* **SPL Extension:** If your child is a Singapore citizen, you can receive up to 26 weeks of paid parental leave if your spouse donates their full 10 weeks of the Shared Parental Leave (SPL) scheme to you. (The default SPL split is 5 weeks for mothers and 5 weeks for fathers).  \n* **SPL Scenarios (For Singapore Citizen Children born on or after April 1, 2026):**  \n  * **Employee (Mother) \\+ Non-Employee (Father):** You are entitled to 24 weeks standard. If your spouse donates 9 or 10 weeks of his SPL to you, your leave increases to 25 or 26 weeks. If you donate 9 or 10 weeks of SPL to your spouse, your maternity leave will remain 24 weeks because the company's benefit already exceeds statutory limits.  \n  * **Both Parents are Employees:** The mother receives 24 weeks of Maternity Leave and the spouse receives 18 weeks of Baby Bonding Leave. If the mother receives 9 or 10 weeks of SPL from her spouse, her leave extends to 25 or 26 weeks. However, employee fathers allocating 9 or 10 weeks of SPL to their partner will need to reduce their Baby Bonding Leave to 16 or 17 weeks, subject to periodic audits.  \n* **Verification:** Regardless of the sharing arrangement, you are required to provide proof of the official SPL allocation from LifeSG within 4 weeks from your child's birth or adoption date. The company reserves the right to claw back any additional leave granted if the official arrangement differs from the submitted documentation.\n\n[Parent Section: FAMILY-BUILDING & TRANSITION LEAVES | Subsection 2.1: Maternity Leave (Singapore)]\nPaid maternity leave is offered to support pregnancy, recovery from childbirth, and infant bonding.\n\n* **Duration:** Effective 1 April 2026, all eligible employees are entitled to **24 weeks of paid parental leave**.  \n* **Shared Parental Leave (SPL) Extension:** Under Phase 2 of Singapore\u2019s MSF scheme, parents of Singaporean children born on or after 1 April 2026 are entitled to 10 weeks of shared parental leave (default split is 5 weeks for each parent).  \n  * **SPL Donation:** If your spouse donates their portion (up to 10 weeks) of SPL to you, your total paid maternity leave can be extended to **25 or 26 weeks**.  \n  * **SPL Allocation Audit:** Regardless of the split, you must submit proof of the official SPL allocation from LifeSG within 4 weeks of birth/adoption for record-keeping and statutory audits.  \n  * **Moms Donating SPL:** If you donate your portion of SPL to your spouse, your Altostrat maternity leave is *not* reduced below the 24-week baseline, as company benefits are already inclusive of and exceed statutory limits.  \n* **Interns:** Eligible interns who have served for a continuous period of at least 3 months are entitled to **16 weeks of statutory maternity leave**, which must be taken consecutively. Interns whose spouses donate SPL can extend their leave up to 26 weeks.  \n* **Administrative Procedures:**  \n  * Maternity leave can begin up to **28 days before your expected due date**.  \n  * The first **8 weeks (56 days) must be taken consecutively**. The remaining 16 weeks (80 working days) can be taken flexibly in daily increments over a 12-month period following the child's birth.  \n  * Maternity leave must be logged in WorkWeek using two separate codes: *\"Singapore Leaves \\> SG \\- Maternity Leave (First 8 weeks)\"* and *\"Singapore Leaves \\> SG \\- Maternity Leave (80 working days)\"*.\n\n[Parent Section: FAMILY-BUILDING & TRANSITION LEAVES | Subsection 2.2: Baby Bonding Leave (Global)]\nBaby Bonding Leave (BBL) is available to spent time with a new child welcomed through childbirth, adoption, surrogacy, or fostering (for parents who do not take maternity leave).\n\n* **Allowance:** Eligible employees can take up to **18 weeks (90 work days) of paid leave** per year. Even if multiple children are welcomed at once, only one 18-week period can be claimed.  \n* **Timelines:** BBL must begin on or after the child's birth/placement date and be **fully utilized within 12 months** of that date, or any remaining balance is forfeited. It can be taken all at once or in weekly blocks.  \n* **Shared Parental Leave Impact (Singapore):** Your baby bonding leave remains at 18 weeks regardless of the SPL sharing arrangement with your spouse. However, if both parents are Altostrat employees and the father allocates SPL to his partner, his BBL must be reduced to 16 or 17 weeks depending on the allocation, subject to periodic audits.  \n* **Monetary Benefit:** Employees taking BBL are eligible for a monetary baby bonding benefit to spend on meals, cleaning, laundry, or gardening.\n\n[Parent Section: GLOBAL LEAVES OVERVIEW | Subsection 21.4: Family-Building and Transition Leaves]\n* **Maternity Leave:** Maternity leave provides approximately 24 weeks at 100% pay for pregnancy, childbirth, and infant bonding.  \n* **Baby Bonding Leave:** Baby bonding leave provides 18 weeks at 100% pay for the early care of a new child. This leave can be taken in one-week increments within the first year of the child's birth or adoption.  \n* **Ramp-Back Time:** Ramp-back time provides 2 weeks at 100% pay, while only working 50% time, to help ease the transition back to work following maternity or baby bonding leave while balancing work and new childcare arrangements.  \n  * To be eligible, you must take at least 10 or more consecutive weeks of bonding or maternity leave.  \n  * Ramp-back time must be taken immediately upon your return to work.  \n  * You can customize your working schedule for those 2 weeks as long as you work a minimum of 50% of your normal working hours."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {
+                  "query": "If my spouse donates Shared Parental Leave (SPL), what is the total maternity leave?",
+                  "jurisdiction": "SG"
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "sub_policy_carryover_expiry",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_carryover",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "When do carried-over vacation days expire?"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "According to **Carryover and Payouts** (Section `20.3`, anchor `sec-20-3-carryover-and-payouts#c44e22e0`):\n\n[Parent Section: VACATION LEAVE (SINGAPORE) | Subsection 20.3: Carryover and Payouts]\n* **Carryover Limits:** All unused vacation days for the current year will carry over for exactly one additional year. Carried-over vacation days must be used before the end of the following year, or you will lose them.  \n* **No Cash-Out:** The company does not pay out unused vacation to ensure employees take regular breaks to relax and recharge. Exceptions are only made for employees who are transferring to another country or leaving the company entirely.  \n* **Negative Balances:** If you took more vacation than you earned at the time you leave or transfer, the excess will be deducted from your final paycheck.\n\n[Parent Section: PAID TIME OFF & LEAVE OPERATIONS | Subsection 1.2: Paid Vacation Leave (Singapore)]\nVacation time is provided to help employees detach from work and recharge. Employees earned their full vacation entitlement for the year on January 1\\.\n\n* **Accrual Tier Matrix:** The number of days accrued is based on years of continuous service:  \n  * **1 to 6 years of service:** 20 days per year.  \n  * **7 to 10 years of service:** 21 days per year.  \n  * **11+ years of service:** 22 days per year.  \n* **Proration:** Employees in their first year of service receive a prorated number of vacation days based on their start date. Part-time employees accrue prorated hours based on their individual FTE percentage (e.g., 50% FTE accrues 50% of the vacation rate).  \n* **Booking and Scheduling Rules:**  \n  * Vacation can be taken in half-day or full-day increments.  \n  * Shift workers must book vacation based on actual shift hours. For instance, a **12-hour shift requires 1.5 vacation days** (defined as 8-hour blocks).  \n  * You must discuss and obtain approval from your manager for your planned dates **at least 15 days in advance**.  \n  * Any changes or cancellations to booked vacation must be processed **at least 15 days before the leave starts**.  \n* **Carryover & Pay-out Limitations:** All unused vacation days from the current year carry over for **exactly one additional year**. Carried-over days must be used by December 31 of the following year or they are forfeited. Altostrat does not pay out unused vacation, except upon country-to-country transfer or termination of employment.  \n* **Floating Holidays:** If a recognized public holiday falls on a Saturday or Sunday, employees are granted a floating holiday, which must be utilized like vacation before the calendar year ends. Floating holidays do not carry forward and are not cashed out upon termination.  \n* **System Constraints & Validity:** All leave requests must be chronologically valid (the start date cannot occur after the end date). Furthermore, the system will automatically reject any leave request that exceeds the employee's current accrued balance.\n\n[Parent Section: VACATION LEAVE (SINGAPORE) | Subsection 20.6: Floating Holidays]\n* **Earning:** If a public holiday falls on a Saturday or Sunday, you receive a floating holiday.  \n* **Usage:** You must use these days like vacation anytime before the calendar year ends.  \n* **Restrictions:** Floating holidays will not be carried forward to the following year and are not cashed out upon transfer or termination. Employees are recommended to use floating holidays before their standard vacation balance.\n\n[Parent Section: PAID TIME OFF & LEAVE OPERATIONS | Subsection 1.3: Childcare Leave (Singapore)]\nPaid childcare leave is available for eligible parents with children under the age of 12\\.\n\n* **Allowance Categories:**  \n  * **6 days of paid leave per year** if your children are under 7 years old.  \n  * **2 days of paid leave per year** if your youngest child is between 7 and 12 years old.  \n  * **6 days of paid leave per year** if you have children in both age groups.  \n* **Usage:** Leave is counted in full work days. Once agreed with your manager, you must record it in WorkWeek. Unused childcare leave does not carry over and is not paid out upon leaving the company.\n\n[Parent Section: UNPAID TIME OFF & PERSONAL LEAVE | Subsection 18.3: Personal Leave (Up to 92 Days)]\n* **Allowance:** With both manager and director approval, employees can take up to 92 calendar days of continuous unpaid personal leave, which is inclusive of any unpaid time off already taken.  \n* **Usage Rules:** Personal leave must be taken in one continuous block of time. Vacation can only be added before or after the personal leave if the employee wants to extend their time away.  \n* **Prerequisites:** It is recommended that employees use all available leaves, such as accrued vacation, medical leave, and carer's leave, before applying for a personal leave.  \n* **Approval Criteria:** Applications are evaluated based on past performance and current team needs, and are granted on a case-by-case basis at the business's discretion. Managers and directors may consider factors such as having at least 2 years of tenure, receiving a \"Significant Impact\" or higher rating in the last cycle, having fewer than 10 vacation days remaining, and the team's ability to cover the work in the employee's absence.  \n* **Notice and Booking:** Employees must notify their manager at least 30 days in advance of the requested leave. To book the leave, the employee must contact support to submit the manager and director approvals so that People Ops can enter the personal leave in WorkWeek on their behalf."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_policy",
+                "args": {
+                  "query": "When do carried-over vacation days expire?",
+                  "jurisdiction": "SG"
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    }
+  ]
+}

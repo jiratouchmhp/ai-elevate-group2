@@ -148,7 +148,8 @@ class ModelArmorScanner:
     LEGITIMATE_HR_IT_CONTEXT = re.compile(
         r"\b(?:policy|handbook|leave|vacation|sick|maternity|bereavement|harassment|retaliation|discrimination|"
         r"terminate\s+employment|termination\s+of\s+employment|kill\s+the\s+(?:stuck\s+)?process|vpn|ticket|"
-        r"incident|workweek|serviceimmediately|relocation|equipment|monitor|allowance|expense|meal|bullying)\b",
+        r"incident|workweek|serviceimmediately|relocation|equipment|monitor|allowance|expense|meal|bullying|"
+        r"payroll|bonus|salary|reimburse|reimbursement|subsidy|stipend)\b",
         re.I,
     )
 

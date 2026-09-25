@@ -44,6 +44,7 @@ AR_IMAGE_PREFIX  := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(AR_REPO)
 
 .PHONY: help install start start-ui run start-adk local-adk start-local dev local-up \
         test-local local-user-test test \
+        eval eval-rag-retrieval eval-rag-generation eval-subagents eval-e2e eval-adk-cli eval-validate \
         mcp-test mcp-unit-test mcp-integration-test mcp-e2e-test \
         firestore-setup firestore-provision firestore-status \
         firestore-unit-test firestore-integration-test firestore-e2e-test firestore-test \
@@ -72,6 +73,15 @@ help: ## Show available targets and current GCP configuration
 	@echo "  make start-local      Run BOTH Customer Chat UI ( :$(PORT) ) & ADK Web UI ( :$(ADK_PORT) ) locally"
 	@echo "  make start            Start Customer Chat UI (FastAPI + AG-UI SSE) on http://vannick2.c.googlers.com:$(PORT)"
 	@echo "  make start-adk        Start Google ADK Developer Web UI on http://vannick2.c.googlers.com:$(ADK_PORT)"
+	@echo ""
+	@echo "Google ADK 4-Pillar Evaluation Framework (Retrieval, Generation, Subagents, E2E):"
+	@echo "  make eval                Run all 4 evaluation pillars via Google ADK LocalEvalService & AgentEvaluator"
+	@echo "  make eval-rag-retrieval  Run Pillar 1: RAG Retrieval (Recall@5, Recall@1, MRR, C-1..C-6, FR-5.4 Refusal)"
+	@echo "  make eval-rag-generation Run Pillar 2: RAG Generation (Citations, Groundedness, Zero Delimiter Leaks)"
+	@echo "  make eval-subagents      Run Pillar 3: Isolated Subagent Evaluation (policy, workweek, service_immediately)"
+	@echo "  make eval-e2e            Run Pillar 4: 4-Tier E2E Golden EvalSet + UC-2.x Sagas + Red-Team/FP Gate"
+	@echo "  make eval-adk-cli        Run native 'adk eval' CLI against app and tests/eval/eval_config.json"
+	@echo "  make eval-validate       Validate ADK *.evalset.json schema & 40/30/15/15 4-Tier Stratification"
 	@echo ""
 	@echo "Automated Test Suites:"
 	@echo "  make install          Install/sync Python dependencies via uv / pip"
@@ -204,7 +214,39 @@ test-local: ## Test the local UI + ADK Agent + Live MCP Server (EMP-836) + GCP V
 local-user-test: test-local ## Alias for 'make test-local'
 
 test: ## Run the unit, integration, E2E, and golden evaluation test suite
-	$(PYTHON) -m unittest discover -s tests -v
+	PYTHONPATH=. $(PYTHON) -m unittest discover -s tests -v
+
+# ------------------------------------------------------------------------------
+# 1a. Google ADK 4-Pillar Evaluation Framework (SDD §9.1–§9.4)
+# ------------------------------------------------------------------------------
+eval: ## Run the complete 4-Pillar Google ADK Evaluation Suite (RAG Retrieval, RAG Generation, Subagents, E2E)
+	PYTHONPATH=. $(PYTHON) -m tests.eval.adk_eval_runner --pillar all
+
+eval-rag-retrieval: ## Run Pillar 1: RAG Retrieval Benchmark (Recall@5, Recall@1, MRR, C-1..C-6 Gates, FR-5.4 Refusal)
+	PYTHONPATH=. $(PYTHON) -m tests.eval.adk_eval_runner --pillar rag-retrieval
+
+eval-rag-generation: ## Run Pillar 2: RAG Generation & Citation Accuracy via ADK LocalEvalService
+	PYTHONPATH=. $(PYTHON) -m tests.eval.adk_eval_runner --pillar rag-generation
+
+eval-subagents: ## Run Pillar 3: Isolated Specialist Subagent Evaluation (policy_agent, workweek_agent, service_immediately_agent)
+	PYTHONPATH=. $(PYTHON) -m tests.eval.adk_eval_runner --pillar subagents
+
+eval-e2e: ## Run Pillar 4: End-to-End 4-Tier Stratified EvalSet + UC-2.x Sagas + Red-Team/False-Positive Gate
+	PYTHONPATH=. $(PYTHON) -m tests.eval.adk_eval_runner --pillar e2e
+
+eval-adk-cli: ## Run native Google ADK CLI evaluator ('python -m google.adk.cli eval') with live Vertex AI Gemini credentials
+	GOOGLE_CLOUD_PROJECT=$(PROJECT_ID) \
+	GOOGLE_CLOUD_LOCATION=$(GOOGLE_CLOUD_LOCATION) \
+	GEMINI_MODEL=$(GEMINI_MODEL) \
+	GOOGLE_GENAI_USE_VERTEXAI=$(GOOGLE_GENAI_USE_VERTEXAI) \
+	PYTHONPATH=. $(PYTHON) -m google.adk.cli eval app \
+		tests/eval/datasets/e2e_4tier_golden.evalset.json \
+		--config_file_path=tests/eval/eval_config.json \
+		--print_detailed_results
+
+eval-validate: ## Validate ADK EvalSet JSON schema and 4-Tier (40/30/15/15) Stratification compliance
+	PYTHONPATH=. $(PYTHON) /usr/local/google/home/vannick/.gemini/config/plugins/sdd-evaluation/skills/eval-adk-skill/scripts/validate_evalset.py \
+		--file tests/eval/datasets/e2e_4tier_golden.evalset.json
 
 mcp-unit-test: ## Run deterministic MCP Client & ACL Proxy unit tests
 	$(PYTHON) -m unittest tests/unit/test_mcp_client.py -v

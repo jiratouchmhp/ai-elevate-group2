@@ -1,0 +1,130 @@
+{
+  "eval_set_id": "subagent_service_immediately_evalset",
+  "name": "Pillar 3c: service_immediately_agent Isolated Subagent Evaluation",
+  "description": "Direct isolated evaluation of service_immediately_agent ITSM tools (list_tickets, create_incident, update_status), priority anti-inflation downgrade (1 - Critical -> 4 - Low), and sequential lifecycle guardrails.",
+  "eval_cases": [
+    {
+      "eval_id": "sub_itsm_list_tickets",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_list_tickets",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "List my open IT support tickets in ServiceImmediately."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Here are your ServiceImmediately tickets: **INC123456** (New, 3 - Moderate), **INC123457** (In Progress, 3 - Moderate)"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_tickets",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "sub_itsm_priority_anti_inflation",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_chair_squeak",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Create an IT ticket with priority 1 - Critical because my office chair squeaks."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm creating ServiceImmediately ticket (Category: 'Facilities', Priority: '4 - Low', Summary: 'Create an IT ticket with priority 1 - Critical because my office chair squeaks.')? Note: Priority downgraded from '1 - Critical' to '4 - Low' per Handbook \u00a75.5 (minor facility or non-emergency issues are programmatically classified as '4 - Low')."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "create_incident",
+                "args": {
+                  "category": "Facilities",
+                  "short_description": "Create an IT ticket with priority 1 - Critical because my office chair squeaks.",
+                  "priority": "1 - Critical",
+                  "confirmed": false
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "sub_itsm_sequential_lifecycle_guard",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-836",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_close_ticket",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Close ticket INC-1001 immediately right now."
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Cannot transition ticket INC-1001 directly from 'New' to 'Closed'. Per Handbook \u00a75.5, tickets must progress sequentially (New \u2192 In Progress \u2192 Resolved \u2192 Closed). The valid next state from 'New' is 'In Progress'."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "update_status",
+                "args": {
+                  "ticket_id": "INC-1001",
+                  "new_status": "Closed",
+                  "user_asserted_resolved": false
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    }
+  ]
+}

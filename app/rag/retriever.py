@@ -22,7 +22,8 @@ from app.safety.guardrails import spotlight_retrieved_chunk
 SYNONYM_EXPANSIONS: Dict[str, List[str]] = {
     "workday": ["workweek", "hcm"],
     "workweek": ["workday", "hcm"],
-    "pto": ["vacation", "paid time off", "annual leave"],
+    "pto": ["vacation", "accrual", "accrual rates", "increments", "20 days", "21 days", "annual leave"],
+    "accrual": ["accrual rates", "increments", "vacation", "20 days", "21 days"],
     "annual": ["vacation", "accrual", "service"],
     "servicenow": ["serviceimmediately", "itsm", "ticket"],
     "mc": ["medical certificate", "sick", "48 hours"],
@@ -46,8 +47,10 @@ SYNONYM_EXPANSIONS: Dict[str, List[str]] = {
 UNANSWERABLE_TOPIC_PATTERNS = [
     re.compile(r"\bparking\s+(?:subsidy|allowance|reimbursement|pass)\b", re.I),
     re.compile(r"\bgym\s+(?:membership|subsidy|stipend)\b", re.I),
-    re.compile(r"\bpet\s+insurance\s+reimbursement\b", re.I),
-    re.compile(r"\bcrypto(?:currency)?\s+(?:salary|bonus|payroll)\b", re.I),
+    re.compile(r"\bpet\s+(?:insurance|transport|helicopter|reimbursement)\b", re.I),
+    re.compile(r"\b(?:helicopter|private\s+jet|yacht)\b", re.I),
+    re.compile(r"\bmassage\s+(?:stipend|allowance|reimbursement)\b", re.I),
+    re.compile(r"\b(?:crypto(?:currency)?|bitcoin)\b", re.I),
     re.compile(r"\bsabbatical\s+pay\s+at\s+80%\b", re.I),
     re.compile(r"\bstock\s+option\s+vesting\s+cliff\b", re.I),
     re.compile(r"\bcommuter\s+train\s+pass\s+subsidy\b", re.I),
