@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Altostrat Singapore — HR Agentic Architecture &amp; Assistant (React)</title>
+  <meta name="description" content="React 18 + TypeScript Experience Plane for Google ADK 2+ Multi-Agent Runtime, Vertex AI RAG Engine, and Deterministic PDP Governance" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/frontend/styles.css" />
+  <!-- Markdown & Sanitization Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.9/dist/purify.min.js"></script>
+  <!-- React 18 + ReactDOM 18 + Babel TSX Runtime for Live /frontend/App.tsx Execution -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    (async function bootReactFrontend() {
+      const rootEl = document.getElementById('root');
+      try {
+        const res = await fetch('/frontend/App.tsx');
+        if (!res.ok) {
+          throw new Error('Failed to load /frontend/App.tsx: ' + res.status);
+        }
+        const tsxSource = await res.text();
+        const compiled = Babel.transform(tsxSource, {
+          filename: 'App.tsx',
+          presets: ['env', 'react', 'typescript'],
+        }).code;
+
+        const exports = {};
+        const module = { exports };
+        const requireShim = function (modName) {
+          if (modName === 'react') return window.React;
+          if (modName === 'react-dom' || modName === 'react-dom/client') return window.ReactDOM;
+          throw new Error('Unknown module: ' + modName);
+        };
+
+        const fn = new Function('exports', 'module', 'require', 'React', compiled);
+        fn(exports, module, requireShim, window.React);
+
+        const RootApp = module.exports.default || exports.default || exports.App;
+        const root = window.ReactDOM.createRoot(rootEl);
+        root.render(window.React.createElement(RootApp));
+      } catch (err) {
+        console.error('React bootstrap error:', err);
+        rootEl.innerHTML =
+          '<div style="padding:24px;font-family:monospace;color:#ef4444;">Failed to compile /frontend/App.tsx: ' +
+          String(err) +
+          '</div>';
+      }
+    })();
+  </script>
+</body>
+</html>

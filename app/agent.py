@@ -186,7 +186,7 @@ root_agent = LlmAgent(
 )
 
 app = App(
-    name="altostrat_hr_agent",
+    name="app",
     root_agent=root_agent,
 )
 
