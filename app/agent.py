@@ -207,6 +207,8 @@ class TurnResult:
     refusal: bool = False
     saga_id: Optional[str] = None
     saga_state: Optional[str] = None
+    selected_intent: str = ""
+    intent_source: str = ""
 
 
 class HRMultiAgentRuntime:
@@ -687,18 +689,32 @@ class HRMultiAgentRuntime:
         )
         llm_req = LlmRequest(prompt=user_prompt, model=root_agent.model)
 
+        state["_last_brain_intent"] = ""
+        state["_last_intent_source"] = ""
+
         # 1. Execute before_model_callback (IAP scope, FR-3.4 scrub, Model Armor INPUT, SDP, FAQ Cache)
         pre_resp = before_model_guardrail_callback(cb_ctx, llm_req)
         if pre_resp is not None:
             events.extend(pre_resp.custom_events)
             for cit in pre_resp.citations:
                 events.append({"type": "CUSTOM: citation", "citation": cit})
+            pre_intent = "guardrail_safety_block" if pre_resp.blocked else "faq_cheap_path_cache"
+            pre_source = "deterministic_guardrail" if pre_resp.blocked else "cheap_path_cache"
+            events.append(
+                {
+                    "type": "CUSTOM: intent_routed",
+                    "selected_intent": pre_intent,
+                    "intent_source": pre_source,
+                }
+            )
             events.append({"type": "TEXT_MESSAGE_CONTENT", "text": pre_resp.text})
             return TurnResult(
                 response_text=pre_resp.text,
                 events=events,
                 citations=pre_resp.citations,
                 blocked=pre_resp.blocked,
+                selected_intent=pre_intent,
+                intent_source=pre_source,
             )
 
         prompt_lower = user_prompt.lower()
@@ -849,6 +865,12 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         llm_brain = self._query_gemini_agent_brain(user_prompt) or {}
         brain_intent = str(llm_brain.get("intent") or "").strip().lower()
+        state["_last_brain_intent"] = brain_intent
+        state["_last_intent_source"] = (
+            "gemini_llm_router"
+            if brain_intent
+            else ("saga_confirmation_gate" if is_confirmation_turn else "pattern_fallback")
+        )
         pending_leave_draft = state.get("pending_leave_draft")
         _, _, _, prompt_has_dates = self._parse_flexible_dates_and_duration(user_prompt)
 
@@ -2316,6 +2338,99 @@ class HRMultiAgentRuntime:
             blocked=blocked,
         )
         final_resp = after_model_guardrail_callback(cb_ctx, llm_resp) or llm_resp
+        state = cb_ctx.state or {}
+        brain_intent = str(state.get("_last_brain_intent") or "").strip()
+        intent_source = str(state.get("_last_intent_source") or "").strip()
+
+        if final_resp.blocked:
+            if "get_employee_feedback" in tool_trajectory or "Rule B-5" in final_resp.text:
+                selected_intent = "forbidden_tool_b5"
+                intent_source = "deterministic_guardrail"
+            elif "FR-1.5" in final_resp.text:
+                selected_intent = "cross_user_idor_block"
+                intent_source = "deterministic_guardrail"
+            elif tool_trajectory:
+                selected_intent = f"pdp_block:{tool_trajectory[-1]}"
+                intent_source = "deterministic_pdp"
+            else:
+                selected_intent = "guardrail_safety_block"
+                intent_source = "deterministic_guardrail"
+        elif brain_intent:
+            selected_intent = brain_intent
+            intent_source = intent_source or "gemini_llm_router"
+        elif tool_trajectory:
+            if (
+                "search_policy" in tool_trajectory
+                and "create_incident" in tool_trajectory
+                and "submit_leave" in tool_trajectory
+            ):
+                selected_intent = "medical_leave_workflow"
+            elif (
+                "search_policy" in tool_trajectory
+                and "get_profile" in tool_trajectory
+                and "create_incident" in tool_trajectory
+            ):
+                selected_intent = "equipment_workflow"
+            elif (
+                "search_policy" in tool_trajectory
+                and "update_contact" in tool_trajectory
+                and "create_incident" in tool_trajectory
+            ):
+                selected_intent = "relocation_workflow"
+            elif "submit_leave" in tool_trajectory:
+                selected_intent = "submit_leave"
+            elif "cancel_leave" in tool_trajectory:
+                selected_intent = "cancel_leave"
+            elif "get_leave_requests" in tool_trajectory:
+                selected_intent = "get_leave_requests"
+            elif "get_leave_balance" in tool_trajectory:
+                selected_intent = "get_leave_balance"
+            elif "update_contact" in tool_trajectory:
+                selected_intent = "update_contact"
+            elif "get_personal_info" in tool_trajectory:
+                selected_intent = "get_personal_info"
+            elif "get_profile" in tool_trajectory:
+                selected_intent = "get_profile"
+            elif "update_status" in tool_trajectory:
+                selected_intent = "update_status"
+            elif "add_comment" in tool_trajectory:
+                selected_intent = "add_comment"
+            elif "create_incident" in tool_trajectory:
+                selected_intent = "create_incident"
+            elif "get_ticket" in tool_trajectory:
+                selected_intent = "get_ticket"
+            elif "list_tickets" in tool_trajectory:
+                selected_intent = "list_tickets"
+            elif "search_policy" in tool_trajectory:
+                selected_intent = "search_policy_refusal" if refusal else "search_policy"
+            else:
+                selected_intent = tool_trajectory[-1]
+            intent_source = intent_source or "pattern_fallback"
+        else:
+            low_t = final_resp.text.lower()
+            if "cancelled pending" in low_t:
+                selected_intent = "cancel_pending_confirmation"
+                intent_source = "saga_confirmation_gate"
+            elif "before i can submit your leave request" in low_t:
+                selected_intent = "submit_leave"
+                intent_source = intent_source or "pattern_fallback"
+            elif "happy to help! have a great day" in low_t:
+                selected_intent = "farewell"
+                intent_source = intent_source or "pattern_fallback"
+            elif "here is how i can assist you" in low_t:
+                selected_intent = "help"
+                intent_source = intent_source or "pattern_fallback"
+            else:
+                selected_intent = "greeting"
+                intent_source = intent_source or "pattern_fallback"
+
+        events.append(
+            {
+                "type": "CUSTOM: intent_routed",
+                "selected_intent": selected_intent,
+                "intent_source": intent_source,
+            }
+        )
         events.append({"type": "TEXT_MESSAGE_CONTENT", "text": final_resp.text})
         return TurnResult(
             response_text=final_resp.text,
@@ -2328,4 +2443,6 @@ class HRMultiAgentRuntime:
             refusal=refusal,
             saga_id=saga_id,
             saga_state=saga_state,
+            selected_intent=selected_intent,
+            intent_source=intent_source,
         )

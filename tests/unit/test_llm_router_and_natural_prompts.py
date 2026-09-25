@@ -79,6 +79,30 @@ class TestLLMRouterAndNaturalPrompts(unittest.TestCase):
                 self.assertIn("workweek_agent", res.delegated_agents)
                 self.assertIn("submit_leave", res.tool_trajectory)
                 self.assertNotIn("search_policy", res.tool_trajectory)
+                self.assertEqual(res.selected_intent, "submit_leave")
+
+    def test_selected_intent_and_source_in_turn_result_and_ui_bff(self) -> None:
+        """TurnResult, handle_chat_payload, and App.tsx expose selected_intent and intent_source."""
+        from pathlib import Path
+        from app.ui.ag_ui_server import handle_chat_payload
+
+        with patch.object(
+            self.runtime,
+            "_query_gemini_agent_brain",
+            return_value={"agent": "workweek_agent", "intent": "get_leave_balance"},
+        ):
+            res = self.runtime.run_turn("retrieve my balance days")
+            self.assertEqual(res.selected_intent, "get_leave_balance")
+            self.assertEqual(res.intent_source, "gemini_llm_router")
+
+        payload = handle_chat_payload({"prompt": "retrieve my balance days", "session_id": "sess-intent-ui"}, {})
+        self.assertEqual(payload["selected_intent"], "get_leave_balance")
+        self.assertIn(payload["intent_source"], ("gemini_llm_router", "pattern_fallback"))
+
+        app_tsx = (Path(__file__).resolve().parents[2] / "app" / "ui" / "frontend" / "App.tsx").read_text(encoding="utf-8")
+        self.assertIn("intent-pill", app_tsx)
+        self.assertIn("🎯 Intent:", app_tsx)
+        self.assertIn("3. INTENT ROUTER", app_tsx)
 
 
 if __name__ == "__main__":

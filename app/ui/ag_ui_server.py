@@ -173,6 +173,8 @@ def handle_chat_payload(body: Dict[str, Any], headers: Dict[str, str]) -> Dict[s
         "confirmation_card": turn_result.confirmation_card,
         "delegated_agents": turn_result.delegated_agents,
         "tool_trajectory": turn_result.tool_trajectory,
+        "selected_intent": turn_result.selected_intent,
+        "intent_source": turn_result.intent_source,
         "blocked": turn_result.blocked,
         "refusal": turn_result.refusal,
         "saga_id": turn_result.saga_id,
@@ -355,6 +357,8 @@ try:
                     "confirmation_card": result.get("confirmation_card"),
                     "delegated_agents": result.get("delegated_agents", []),
                     "tool_trajectory": result.get("tool_trajectory", []),
+                    "selected_intent": result.get("selected_intent", ""),
+                    "intent_source": result.get("intent_source", ""),
                 },
             }
             yield json.dumps(event_payload) + "\n"

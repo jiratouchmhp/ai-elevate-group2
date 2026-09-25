@@ -42,6 +42,8 @@ export interface ChatTurnMessage {
   latencyMs?: number;
   blocked?: boolean;
   refusal?: boolean;
+  selectedIntent?: string;
+  intentSource?: string;
   delegatedAgents?: string[];
   toolTrajectory?: string[];
   citations?: CitationMetadata[];
@@ -65,8 +67,8 @@ const NODE_DESCRIPTIONS: Record<string, { title: string; desc: string }> = {
     desc: 'Inspects incoming prompts for prompt injection / jailbreaks (FR-1.3), off-topic requests, and cross-employee IDOR attempts (FR-1.5) before any agent or tool executes.',
   },
   root_orchestrator: {
-    title: '🧠 root_orchestrator (Google ADK 2+ Router, SDD §3.1)',
-    desc: 'Central coordinator holding zero direct tools. Analyzes user intent, handles conversational greetings/farewells, and delegates via transfer_to_agent to specialist sub-agents.',
+    title: '🧠 root_orchestrator (Google ADK 2+ LLM-First Router, SDD §3.1)',
+    desc: 'Central coordinator holding zero direct tools. Uses Gemini LLM structured intent classification (_query_gemini_agent_brain) to select the exact intent and delegate via transfer_to_agent to specialist sub-agents.',
   },
   policy_agent: {
     title: '📘 policy_agent (SG Policy & Allowance Specialist)',
@@ -110,10 +112,12 @@ const SCENARIOS = [
   // Track B: Core RAG & Live MCP
   { track: 'track-b', cls: 'quick', label: '1. Policy RAG (Relocation Cap)', prompt: 'What is the relocation allowance cap when transferring to London?' },
   { track: 'track-b', cls: 'quick', label: '2. WorkWeek Leave Balance (Live MCP)', prompt: 'What is my current leave balance?' },
+  { track: 'track-b', cls: 'quick', label: '💬 Natural: "retrieve my balance days"', prompt: 'retrieve my balance days' },
   { track: 'track-b', cls: 'quick', label: '3. WorkWeek Profile (Live MCP)', prompt: 'Show my WorkWeek profile' },
   { track: 'track-b', cls: 'quick', label: '4. ServiceImmediately Tickets (Live MCP)', prompt: 'List my open tickets' },
   { track: 'track-b', cls: 'quick', label: '5. Cross-System Eligibility (RAG + MCP)', prompt: 'Am I eligible for a home office monitor, and what is the allowance cap?' },
   { track: 'track-b', cls: 'quick', label: '6. Submit Leave (B-3 Confirmation Card)', prompt: 'Please submit a time-off request for 2 days from 2026-10-15 to 2026-10-16' },
+  { track: 'track-b', cls: 'quick', label: '💬 Natural: "ask for 2 days of leave"', prompt: 'I want to ask for 2 days of leave from 2026-10-15 to 2026-10-16' },
   // Track C: Guardrail & PDP Blocks
   { track: 'track-c', cls: 'quick-reject', label: '🚫 Unanswerable Policy (FR-5.4 Refusal)', prompt: 'What is the company policy on pet insurance reimbursement?' },
   { track: 'track-c', cls: 'quick-reject', label: '🔒 Cross-User IDOR (FR-1.5 RBAC)', prompt: "What is EMP-SG-002's current leave balance?" },
@@ -333,6 +337,10 @@ export const App: React.FC = () => {
   const [selectedTrack, setSelectedTrack] = useState<'all' | 'track-a' | 'track-b' | 'track-c'>('all');
   const [activeArchTab, setActiveArchTab] = useState<'trace' | 'guide' | 'ledger'>('trace');
   const [selectedNode, setSelectedNode] = useState<string>('root_orchestrator');
+  const [activeIntent, setActiveIntent] = useState<{ intent: string; source: string }>({
+    intent: 'awaiting_query',
+    source: 'gemini_llm_router',
+  });
 
   // Architecture Diagram Reactive State
   const [nodeClasses, setNodeClasses] = useState<Record<string, string>>({
@@ -450,6 +458,10 @@ export const App: React.FC = () => {
     const agents: string[] = data.delegated_agents || [];
     const tools: string[] = data.tool_trajectory || [];
     const citations: CitationMetadata[] = data.citations || [];
+    const selectedIntent: string = data.selected_intent || (tools.length ? tools[tools.length - 1] : 'greeting');
+    const intentSource: string = data.intent_source || 'gemini_llm_router';
+
+    setActiveIntent({ intent: selectedIntent, source: intentSource });
 
     newNodes['node-iap'] = 'node-active';
     newEdges['edge-iap-guardrail'] = 'edge-active';
@@ -475,12 +487,17 @@ export const App: React.FC = () => {
       newNodes['node-firestore'] = 'node-active';
       newEdges['edge-pdp-firestore'] = 'edge-blocked';
 
-      setArchBanner({ mode: 'blocked', text: `🛡️ INTERCEPTED BY GUARDRAIL / PDP (${latencyMs} ms)` });
+      setArchBanner({
+        mode: 'blocked',
+        text: `🛡️ BLOCKED · Intent: ${selectedIntent} (${latencyMs} ms)`,
+      });
       steps.push({
         badge: '2. GUARDRAIL / PDP BLOCK',
         cls: 'step-guardrail-block',
         typeBadge: 'badge-block',
-        html: `Deterministic safety/policy gate intercepted execution and logged denial to <code>Cloud Firestore Audit Ledger</code>.`,
+        html: `Deterministic safety/policy gate classified intent <code>${escapeHtml(
+          selectedIntent
+        )}</code> (<code>${escapeHtml(intentSource)}</code>) and logged denial to <code>Cloud Firestore Audit Ledger</code>.`,
       });
     } else {
       newNodes['node-guardrail'] = 'node-active';
@@ -492,6 +509,14 @@ export const App: React.FC = () => {
         html: `Input safety &amp; RBAC scan passed (<code>FR-1.3</code> Injection &amp; <code>FR-1.5</code> IDOR clear). Handed to <code>root_orchestrator</code>.`,
       });
 
+      steps.push({
+        badge: '3. INTENT ROUTER',
+        typeBadge: 'badge-mcp',
+        html: `Selected intent: <code>${escapeHtml(selectedIntent)}</code> via <code>${escapeHtml(
+          intentSource
+        )}</code> ➔ routed to <code>${escapeHtml(agents.join(' → ') || 'root_orchestrator')}</code>.`,
+      });
+
       if (agents.includes('policy_agent')) {
         newEdges['edge-root-policy'] = 'edge-active';
         newNodes['node-policy'] = 'node-active';
@@ -500,7 +525,7 @@ export const App: React.FC = () => {
 
         const anchorText = citations.length ? citations[0].citation_anchor : 'handbook_corpus';
         steps.push({
-          badge: '3. ADK -> POLICY RAG',
+          badge: '4. ADK -> POLICY RAG',
           typeBadge: 'badge-mcp',
           html: `<code>root_orchestrator</code> ➔ <code>transfer_to_agent("policy_agent")</code> ➔ queried <code>Vertex AI RAG Engine</code> (${citations.length} grounded chunk(s), anchor: <code>${escapeHtml(
             anchorText
@@ -529,7 +554,9 @@ export const App: React.FC = () => {
           html: data.confirmation_card
             ? `<code>workweek_agent</code> prepared write tool <code>${escapeHtml(
                 data.confirmation_card.action
-              )}</code> ➔ paused at <strong>Rule B-3 Confirmation Gate</strong> (Saga state: <code>PENDING_CONFIRMATION</code> in Firestore).`
+              )}</code> (intent: <code>${escapeHtml(
+                selectedIntent
+              )}</code>) ➔ paused at <strong>Rule B-3 Confirmation Gate</strong> (Saga state: <code>PENDING_CONFIRMATION</code> in Firestore).`
             : `<code>root_orchestrator</code> ➔ <code>transfer_to_agent("workweek_agent")</code> ➔ PDP ALLOW ➔ executed Live MCP tool(s): <code>${escapeHtml(
                 wwTools
               )}</code>.`,
@@ -557,7 +584,10 @@ export const App: React.FC = () => {
       }
 
       if (data.refusal) {
-        setArchBanner({ mode: 'confirm', text: `⚠️ GROUNDED POLICY REFUSAL FR-5.4 (${latencyMs} ms)` });
+        setArchBanner({
+          mode: 'confirm',
+          text: `⚠️ GROUNDED REFUSAL · Intent: ${selectedIntent} (${latencyMs} ms)`,
+        });
         steps.push({
           badge: 'GROUNDED REFUSAL',
           cls: 'step-confirm',
@@ -565,11 +595,14 @@ export const App: React.FC = () => {
           html: `RAG C-1..C-6 gates detected insufficient policy coverage or out-of-scope topic. Emitted first-class <code>RefusalSurface</code> with HR escalation route.`,
         });
       } else if (data.confirmation_card) {
-        setArchBanner({ mode: 'confirm', text: `⏳ AWAITING USER CONFIRMATION — RULE B-3 (${latencyMs} ms)` });
+        setArchBanner({
+          mode: 'confirm',
+          text: `⏳ AWAITING CONFIRMATION · Intent: ${selectedIntent} (${latencyMs} ms)`,
+        });
       } else {
         setArchBanner({
           mode: 'idle',
-          text: `✅ COMPLETED · ${agents.join(' → ') || 'root_orchestrator'} (${latencyMs} ms)`,
+          text: `✅ COMPLETED · Intent: ${selectedIntent} · ${agents.join(' → ') || 'root_orchestrator'} (${latencyMs} ms)`,
         });
       }
     }
@@ -643,6 +676,8 @@ export const App: React.FC = () => {
         latencyMs,
         blocked: Boolean(data.blocked),
         refusal: Boolean(data.refusal),
+        selectedIntent: data.selected_intent || (data.tool_trajectory && data.tool_trajectory.length ? data.tool_trajectory[data.tool_trajectory.length - 1] : 'greeting'),
+        intentSource: data.intent_source || 'gemini_llm_router',
         delegatedAgents: data.delegated_agents || [],
         toolTrajectory: data.tool_trajectory || [],
         citations: data.citations || [],
@@ -829,7 +864,7 @@ export const App: React.FC = () => {
                   🧠 root_orchestrator (ADK)
                 </text>
                 <text x="267" y="99" className="node-sub">
-                  0 Direct Tools · transfer_to_agent
+                  Intent: {activeIntent.intent}
                 </text>
               </g>
 
@@ -1075,7 +1110,7 @@ export const App: React.FC = () => {
                   className={`track-filter-btn ${selectedTrack === 'all' ? 'active' : ''}`}
                   onClick={() => setSelectedTrack('all')}
                 >
-                  ⚡ All Scenarios (16)
+                  ⚡ All Scenarios ({SCENARIOS.length})
                 </button>
                 <button
                   type="button"
@@ -1140,11 +1175,21 @@ export const App: React.FC = () => {
                 <MarkdownRenderer content={m.text} />
 
                 {m.role === 'agent' &&
-                  (m.blocked ||
+                  (m.selectedIntent ||
+                    m.blocked ||
                     m.refusal ||
                     (m.delegatedAgents && m.delegatedAgents.length > 0) ||
                     (m.toolTrajectory && m.toolTrajectory.length > 0)) && (
                     <div className="msg-telemetry-bar">
+                      {m.selectedIntent && (
+                        <span
+                          className="intent-pill"
+                          title={`Selected Intent: ${m.selectedIntent} (Source: ${m.intentSource || 'gemini_llm_router'})`}
+                        >
+                          <span>🎯 Intent: {m.selectedIntent}</span>
+                          {m.intentSource && <span className="intent-source-tag">{m.intentSource}</span>}
+                        </span>
+                      )}
                       {m.blocked && <span className="status-pill-block">🛡️ BLOCKED BY GUARDRAIL / PDP</span>}
                       {m.refusal && <span className="status-pill-refuse">⚠️ GROUNDED REFUSAL (FR-5.4)</span>}
                       {m.delegatedAgents && m.delegatedAgents.length > 0 && (
