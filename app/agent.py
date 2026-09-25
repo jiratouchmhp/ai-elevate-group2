@@ -393,7 +393,7 @@ class HRMultiAgentRuntime:
 
         # 2a. ISO YYYY-MM-DD or YYYY/MM/DD (with optional range `2026-10-01 to 03`)
         for m in re.finditer(
-            r"\b(20\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])\b)?",
+            r"\b(20\d{2})[-/](1[0-2]|0?[1-9])[-/](3[01]|[12]\d|0?[1-9])\b(?:\s*(?:to|-|–|through|until|till)\s*(3[01]|[12]\d|0?[1-9])\b(?![-/]))?",
             prompt,
             re.I,
         ):
@@ -412,7 +412,7 @@ class HRMultiAgentRuntime:
         # 2b. Month Name + Day (e.g. "Oct 1", "October 1st, 2026", "Oct 1 to 3")
         month_names_pat = "|".join(cls._MONTH_MAP.keys())
         for m in re.finditer(
-            rf"\b({month_names_pat})\.?\s+(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?)?(?:,?\s*(20\d{{2}}))?\b",
+            rf"\b({month_names_pat})\.?\s+(3[01]|[12]\d|0?[1-9])(?:st|nd|rd|th)?\b(?:\s*(?:to|-|–|through|until|till)\s*(3[01]|[12]\d|0?[1-9])(?:st|nd|rd|th)?\b)?(?:,?\s*(20\d{{2}}))?\b",
             p_lower,
         ):
             if _overlaps(m.start(), m.end()):
@@ -433,7 +433,7 @@ class HRMultiAgentRuntime:
 
         # 2c. Day + Month Name (e.g. "1 Oct", "1st October 2026", "1 to 3 Oct")
         for m in re.finditer(
-            rf"\b(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?(?:\s*(?:to|-|–|through|until|till)\s*(0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?)?\s+({month_names_pat})\.?(?:,?\s*(20\d{{2}}))?\b",
+            rf"\b(3[01]|[12]\d|0?[1-9])(?:st|nd|rd|th)?\b(?:\s*(?:to|-|–|through|until|till)\s*(3[01]|[12]\d|0?[1-9])(?:st|nd|rd|th)?\b)?\s+({month_names_pat})\.?(?:,?\s*(20\d{{2}}))?\b",
             p_lower,
         ):
             if _overlaps(m.start(), m.end()):
@@ -474,7 +474,7 @@ class HRMultiAgentRuntime:
                 occupied_spans.append((m.start(), m.end()))
 
         # 2e. Short numeric without year: MM/DD or DD/MM (e.g. "10/01", "10/15")
-        for m in re.finditer(r"(?<![\d/-])(0?[1-9]|[12]\d|3[01])/(0?[1-9]|[12]\d|3[01])(?![\d/-])", prompt):
+        for m in re.finditer(r"(?<![\d/-])(3[01]|[12]\d|0?[1-9])/(3[01]|[12]\d|0?[1-9])(?![\d/-])", prompt):
             if _overlaps(m.start(), m.end()):
                 continue
             p1, p2 = int(m.group(1)), int(m.group(2))
@@ -570,7 +570,7 @@ class HRMultiAgentRuntime:
         *,
         reference_today: date = date(2026, 9, 25),
     ) -> Optional[Dict[str, Any]]:
-        """Uses Gemini (google.genai) when enabled to classify user intent and extract tool parameters dynamically."""
+        """Uses Gemini (google.genai) as the primary Multi-Agent & Tool Router to classify intent and extract tool parameters dynamically."""
         import json
         import os
 
@@ -584,22 +584,45 @@ class HRMultiAgentRuntime:
             from google.genai import types as g_types  # type: ignore
             from app.config.env_config import get_gcp_project_id, get_vertex_rag_location
 
-            model_id = FLASH_MODEL_ID
-            if model_id.startswith("gemini-3."):
-                model_id = "gemini-2.5-flash"
+            primary_model = "gemini-2.5-flash" if FLASH_MODEL_ID.startswith("gemini-3.") else FLASH_MODEL_ID
+            candidate_models = []
+            for m in (primary_model, "gemini-2.5-flash", FLASH_MODEL_ID):
+                if m and m not in candidate_models:
+                    candidate_models.append(m)
 
-            client = genai.Client(
-                vertexai=True,
-                project=get_gcp_project_id(),
-                location=get_vertex_rag_location(),
-            )
+            rag_loc = get_vertex_rag_location()
+            candidate_locations = []
+            for loc in ("global", rag_loc, "us-central1"):
+                if loc and loc not in candidate_locations:
+                    candidate_locations.append(loc)
+
             sys_instruction = (
-                f"You are the Agent Brain for Altostrat Singapore's HR & IT Multi-Agent Assistant. "
+                f"You are the Root Orchestrator Router for Altostrat Singapore's HR & IT Multi-Agent Assistant. "
                 f"Today's date is {reference_today.isoformat()} (Year {reference_today.year}). "
-                "Analyze the user message and return a JSON object with:\n"
-                "- `intent`: one of ['submit_leave', 'cancel_leave', 'get_leave_balance', 'get_leave_requests', "
-                "'get_profile', 'get_personal_info', 'update_contact', 'create_incident', 'list_tickets', "
-                "'get_ticket', 'add_comment', 'update_status', 'search_policy', 'other']\n"
+                "Analyze the user's message and route it to the appropriate sub-agent and tool by returning a JSON object with:\n"
+                "- `agent`: one of ['workweek_agent', 'service_immediately_agent', 'policy_agent', 'root_orchestrator']\n"
+                "- `intent`: one of [\n"
+                "    'get_leave_balance',      // User asks to retrieve/check/show their balance days, leave balance, remaining PTO/vacation/sick days, or how many days they have left\n"
+                "    'submit_leave',           // User asks for leave, wants/needs time off, or asks to book/submit/apply/request/take leave or vacation/sick days (even if no dates are given yet)\n"
+                "    'cancel_leave',           // User asks to cancel or undo a leave request\n"
+                "    'get_leave_requests',     // User asks to view/list their submitted leave requests or leave history\n"
+                "    'get_profile',            // User asks to view/check their employee profile, work arrangement, or location status (Remote/Hybrid/On-Site)\n"
+                "    'get_personal_info',      // User asks for their current home address or personal phone number\n"
+                "    'update_contact',         // User asks to update/change their home address or phone number\n"
+                "    'list_tickets',           // User asks to list/show their open or existing support tickets/incidents\n"
+                "    'get_ticket',             // User asks for the status or details of a specific ticket ID (e.g. INC123456)\n"
+                "    'create_incident',        // User asks to open/create/raise an IT, Facilities, or HRSD ticket, or reports a broken hardware/software/VPN/office issue\n"
+                "    'add_comment',            // User asks to add a comment or note to a ticket\n"
+                "    'update_status',          // User asks to resolve, close, or move a ticket to In Progress\n"
+                "    'equipment_workflow',     // User asks if they are eligible for or wants to order a home office monitor / equipment ($500 USD allowance)\n"
+                "    'medical_leave_workflow', // User asks to set up medical leave > 1 week with manager email delegation / HRSD ticket\n"
+                "    'relocation_workflow',    // User is relocating/transferring to London HQ and wants to update their record and building badge\n"
+                "    'search_policy',          // User asks a handbook/policy question (e.g. relocation allowance cap, maternity/bereavement policy, accrual schedule rules)\n"
+                "    'greeting',               // Conversational greeting (hello, hi, good morning)\n"
+                "    'help',                   // User asks what the assistant can do or how it can help\n"
+                "    'farewell',               // Conversational farewell (thanks, goodbye, bye)\n"
+                "    'other'\n"
+                "  ]\n"
                 "- `leave_type`: 'Vacation' or 'Sick' (if intent is submit_leave)\n"
                 "- `start_date`: ISO YYYY-MM-DD start date if any date is mentioned in the prompt, else null. "
                 "If user writes 'book 2 days from 10/01', start_date is '2026-10-01' and end_date is '2026-10-02' (days=2.0).\n"
@@ -611,20 +634,31 @@ class HRMultiAgentRuntime:
                 "- `address`: extracted new physical address if intent is update_contact, else null\n"
                 "- `phone`: extracted new phone number if intent is update_contact, else null"
             )
-            resp = client.models.generate_content(
-                model=model_id,
-                contents=user_prompt,
-                config=g_types.GenerateContentConfig(
-                    system_instruction=sys_instruction,
-                    temperature=0.0,
-                    response_mime_type="application/json",
-                ),
-            )
-            raw_text = (resp.text or "").strip()
-            if raw_text:
-                parsed = json.loads(raw_text)
-                if isinstance(parsed, dict):
-                    return parsed
+            project_id = get_gcp_project_id()
+            for loc in candidate_locations:
+                for model_id in candidate_models:
+                    try:
+                        client = genai.Client(
+                            vertexai=True,
+                            project=project_id,
+                            location=loc,
+                        )
+                        resp = client.models.generate_content(
+                            model=model_id,
+                            contents=user_prompt,
+                            config=g_types.GenerateContentConfig(
+                                system_instruction=sys_instruction,
+                                temperature=0.0,
+                                response_mime_type="application/json",
+                            ),
+                        )
+                        raw_text = (resp.text or "").strip()
+                        if raw_text:
+                            parsed = json.loads(raw_text)
+                            if isinstance(parsed, dict):
+                                return parsed
+                    except Exception:
+                        continue
         except Exception:
             pass
         return None
@@ -738,13 +772,95 @@ class HRMultiAgentRuntime:
         is_confirmation_turn = confirmed or is_affirmative_reply
 
         # ---------------------------------------------------------------------
+        # BDD Rule B-5 / FR-1.1 Capability Manifest Denial (`get_employee_feedback`)
+        # ---------------------------------------------------------------------
+        if any(
+            k in prompt_lower
+            for k in (
+                "get_employee_feedback",
+                "performance review",
+                "peer feedback",
+                "360 feedback",
+                "performance evaluation",
+            )
+        ):
+            deny_res = self._call_subagent_tool(
+                agent=workweek_agent,
+                tool_fn="get_employee_feedback",
+                args={"employee_id": authenticated_employee_id},
+                state=state,
+                events=events,
+                delegated_agents=delegated_agents,
+                tool_trajectory=tool_trajectory,
+            )
+            events.append({"type": "CUSTOM: guardrail_block", "reason": deny_res.get("rule_id", "FR-1.1_EXPLICIT_DENIAL")})
+            return self._finalize_turn(
+                cb_ctx=cb_ctx,
+                text=(
+                    f"REFUSED (Rule B-5 / {deny_res.get('rule_id', 'FR-1.1_EXPLICIT_DENIAL')}): "
+                    f"{deny_res.get('message', 'Access to performance reviews and 360 peer feedback is strictly prohibited in MVP 1.')}"
+                ),
+                events=events,
+                citations=citations,
+                confirmation_card=None,
+                delegated_agents=delegated_agents,
+                tool_trajectory=tool_trajectory,
+                blocked=True,
+                refusal=True,
+            )
+
+        # ---------------------------------------------------------------------
+        # Cross-User Isolation Check in Prompt (FR-1.5 / T-3)
+        # ---------------------------------------------------------------------
+        explicit_emp_match = re.search(r"\b(EMP-(?:SG-)?\d+)\b", user_prompt, re.I)
+        target_other_emp: Optional[str] = None
+        if explicit_emp_match and explicit_emp_match.group(1).upper() != authenticated_employee_id.upper():
+            target_other_emp = explicit_emp_match.group(1).upper()
+        elif re.search(
+            r"\b(?:my\s+manager'?s|another\s+employee'?s|colleague'?s|david\s+lim'?s|arjun'?s)\s+(?:leave|balance|profile|salary|record|address)",
+            prompt_lower,
+        ):
+            target_other_emp = "EMP-SG-099"
+
+        if target_other_emp is not None:
+            cross_res = self._call_subagent_tool(
+                agent=workweek_agent,
+                tool_fn=get_leave_balance,
+                args={"employee_id": target_other_emp},
+                state=state,
+                events=events,
+                delegated_agents=delegated_agents,
+                tool_trajectory=tool_trajectory,
+            )
+            events.append({"type": "CUSTOM: guardrail_block", "reason": "FR-1.5_RBAC_ISOLATION"})
+            return self._finalize_turn(
+                cb_ctx=cb_ctx,
+                text=cross_res.get("message", "Access denied (FR-1.5): Cross-user data access is prohibited."),
+                events=events,
+                citations=citations,
+                confirmation_card=None,
+                delegated_agents=delegated_agents,
+                tool_trajectory=tool_trajectory,
+                blocked=True,
+            )
+
+        # ---------------------------------------------------------------------
+        # Primary LLM Router (Gemini Agent Brain) for Agent & Tool Selection
+        # ---------------------------------------------------------------------
+        llm_brain = self._query_gemini_agent_brain(user_prompt) or {}
+        brain_intent = str(llm_brain.get("intent") or "").strip().lower()
+        pending_leave_draft = state.get("pending_leave_draft")
+        _, _, _, prompt_has_dates = self._parse_flexible_dates_and_duration(user_prompt)
+
+        # ---------------------------------------------------------------------
         # 0. Customer Conversation & Dialog Handler (Greeting, Help, Farewell)
         # ---------------------------------------------------------------------
         clean_conversational = re.sub(r"[^a-z0-9\s]", "", prompt_lower).strip()
         conversational_words = set(clean_conversational.split())
 
         is_farewell = (
-            clean_conversational in (
+            brain_intent == "farewell"
+            or clean_conversational in (
                 "bye",
                 "goodbye",
                 "good bye",
@@ -802,21 +918,26 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        is_help_or_capability = any(
-            phrase in clean_conversational
-            for phrase in (
-                "what can you do",
-                "what can you help",
-                "how can you help",
-                "what workflows",
-                "who are you",
-                "what are your capabilities",
-                "how does this work",
+        is_help_or_capability = (
+            brain_intent == "help"
+            or any(
+                phrase in clean_conversational
+                for phrase in (
+                    "what can you do",
+                    "what can you help",
+                    "how can you help",
+                    "what workflows",
+                    "who are you",
+                    "what are your capabilities",
+                    "how does this work",
+                )
             )
-        ) or clean_conversational in ("help", "menu", "capabilities", "options")
+            or clean_conversational in ("help", "menu", "capabilities", "options")
+        )
 
         is_greeting = (
-            clean_conversational in (
+            brain_intent == "greeting"
+            or clean_conversational in (
                 "hello",
                 "hi",
                 "hey",
@@ -883,51 +1004,14 @@ class HRMultiAgentRuntime:
             )
 
         # ---------------------------------------------------------------------
-        # BDD Rule B-5 / FR-1.1 Capability Manifest Denial (`get_employee_feedback`)
-        # ---------------------------------------------------------------------
-        if any(
-            k in prompt_lower
-            for k in (
-                "get_employee_feedback",
-                "performance review",
-                "peer feedback",
-                "360 feedback",
-                "performance evaluation",
-            )
-        ):
-            deny_res = self._call_subagent_tool(
-                agent=workweek_agent,
-                tool_fn="get_employee_feedback",
-                args={"employee_id": authenticated_employee_id},
-                state=state,
-                events=events,
-                delegated_agents=delegated_agents,
-                tool_trajectory=tool_trajectory,
-            )
-            events.append({"type": "CUSTOM: guardrail_block", "reason": deny_res.get("rule_id", "FR-1.1_EXPLICIT_DENIAL")})
-            return self._finalize_turn(
-                cb_ctx=cb_ctx,
-                text=(
-                    f"REFUSED (Rule B-5 / {deny_res.get('rule_id', 'FR-1.1_EXPLICIT_DENIAL')}): "
-                    f"{deny_res.get('message', 'Access to performance reviews and 360 peer feedback is strictly prohibited in MVP 1.')}"
-                ),
-                events=events,
-                citations=citations,
-                confirmation_card=None,
-                delegated_agents=delegated_agents,
-                tool_trajectory=tool_trajectory,
-                blocked=True,
-                refusal=True,
-            )
-
-        # ---------------------------------------------------------------------
         # Handle Compensating Undo or Single-Domain Leave Cancellation ("cancel the leave")
         # ---------------------------------------------------------------------
         req_id_match = re.search(r"\b(LR-\d+)\b", user_prompt, re.I) or re.search(
             r"\b(?:request|leave)\s*(?:id\s*)?#?(\d+)\b", user_prompt, re.I
         )
         if (
-            "cancel the leave" in prompt_lower
+            brain_intent == "cancel_leave"
+            or "cancel the leave" in prompt_lower
             or "undo" in prompt_lower
             or ("cancel" in prompt_lower and ("leave" in prompt_lower or req_id_match is not None))
         ):
@@ -980,50 +1064,18 @@ class HRMultiAgentRuntime:
             )
 
         # ---------------------------------------------------------------------
-        # Cross-User Isolation Check in Prompt (FR-1.5 / T-3)
-        # ---------------------------------------------------------------------
-        explicit_emp_match = re.search(r"\b(EMP-(?:SG-)?\d+)\b", user_prompt, re.I)
-        target_other_emp: Optional[str] = None
-        if explicit_emp_match and explicit_emp_match.group(1).upper() != authenticated_employee_id.upper():
-            target_other_emp = explicit_emp_match.group(1).upper()
-        elif re.search(
-            r"\b(?:my\s+manager'?s|another\s+employee'?s|colleague'?s|david\s+lim'?s|arjun'?s)\s+(?:leave|balance|profile|salary|record|address)",
-            prompt_lower,
-        ):
-            target_other_emp = "EMP-SG-099"
-
-        if target_other_emp is not None:
-            cross_res = self._call_subagent_tool(
-                agent=workweek_agent,
-                tool_fn=get_leave_balance,
-                args={"employee_id": target_other_emp},
-                state=state,
-                events=events,
-                delegated_agents=delegated_agents,
-                tool_trajectory=tool_trajectory,
-            )
-            events.append({"type": "CUSTOM: guardrail_block", "reason": "FR-1.5_RBAC_ISOLATION"})
-            return self._finalize_turn(
-                cb_ctx=cb_ctx,
-                text=cross_res.get("message", "Access denied (FR-1.5): Cross-user data access is prohibited."),
-                events=events,
-                citations=citations,
-                confirmation_card=None,
-                delegated_agents=delegated_agents,
-                tool_trajectory=tool_trajectory,
-                blocked=True,
-            )
-
-        # ---------------------------------------------------------------------
         # UC-2.1 & Informational Eligibility (GOLD-04): Equipment Allowance & Procurement
         # ---------------------------------------------------------------------
-        if ("monitor" in prompt_lower or "home office equipment" in prompt_lower) and (
-            "order" in prompt_lower
-            or "verify" in prompt_lower
-            or "eligible" in prompt_lower
-            or "allowance" in prompt_lower
-            or "buy" in prompt_lower
-            or "procure" in prompt_lower
+        if brain_intent == "equipment_workflow" or (
+            ("monitor" in prompt_lower or "home office equipment" in prompt_lower)
+            and (
+                "order" in prompt_lower
+                or "verify" in prompt_lower
+                or "eligible" in prompt_lower
+                or "allowance" in prompt_lower
+                or "buy" in prompt_lower
+                or "procure" in prompt_lower
+            )
         ):
             # Step 1 (Read-only): Establish policy rule via Policy Agent
             pol_res = self._call_subagent_tool(
@@ -1154,8 +1206,10 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # UC-2.2: Cross-System Medical Leave & Saga Partial Completion (§3.6)
         # ---------------------------------------------------------------------
-        if "medical leave" in prompt_lower or (
-            "sick" in prompt_lower and ("set it up" in prompt_lower or "email" in prompt_lower)
+        if (
+            brain_intent == "medical_leave_workflow"
+            or "medical leave" in prompt_lower
+            or ("sick" in prompt_lower and ("set it up" in prompt_lower or "email" in prompt_lower))
         ):
             pol_res = self._call_subagent_tool(
                 agent=policy_agent,
@@ -1325,8 +1379,9 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # UC-2.3: Cross-System International Relocation (Policy -> WorkWeek -> ServiceImmediately)
         # ---------------------------------------------------------------------
-        if ("relocation" in prompt_lower or "transferring to the london" in prompt_lower) and any(
-            k in prompt_lower for k in ("update", "record", "building", "badge", "sorted")
+        if brain_intent == "relocation_workflow" or (
+            ("relocation" in prompt_lower or "transferring to the london" in prompt_lower)
+            and any(k in prompt_lower for k in ("update", "record", "building", "badge", "sorted"))
         ):
             pol_res = self._call_subagent_tool(
                 agent=policy_agent,
@@ -1459,10 +1514,75 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # UC-1.2: WorkWeek HCM Single-Domain Operations (All 7 HCM Tools)
         # ---------------------------------------------------------------------
-        if any(
-            k in prompt_lower
-            for k in ("accrued", "leave balance", "pto balance", "remaining balance", "how many hours of pto")
-        ):
+        is_policy_question = (
+            brain_intent == "search_policy"
+            or (
+                any(
+                    q in prompt_lower
+                    for q in (
+                        "what is the policy",
+                        "what is our policy",
+                        "policy on",
+                        "policy for",
+                        "how many days of",
+                        "how much leave",
+                        "how much vacation",
+                        "accrual",
+                        "years of service",
+                        "carry over",
+                        "carryover",
+                        "encash",
+                        "handbook",
+                        "bereavement",
+                        "maternity",
+                        "paternity",
+                        "baby bonding",
+                        "childcare",
+                    )
+                )
+                and not any(v in prompt_lower for v in ("submit", "book", "apply", "ask for", "balance"))
+            )
+        )
+
+        has_balance_intent = (
+            brain_intent == "get_leave_balance"
+            or any(
+                k in prompt_lower
+                for k in (
+                    "accrued",
+                    "leave balance",
+                    "pto balance",
+                    "remaining balance",
+                    "how many hours of pto",
+                    "balance days",
+                    "my balance",
+                    "check balance",
+                    "retrieve balance",
+                    "show balance",
+                    "vacation balance",
+                    "sick balance",
+                    "days remaining",
+                    "remaining days",
+                    "remaining leave",
+                    "days left",
+                    "leave left",
+                    "time off left",
+                    "how many leave days do i have",
+                    "how many vacation days do i have",
+                    "how many days do i have left",
+                    "get_leave_balance",
+                )
+            )
+            or (
+                "balance" in prompt_lower
+                and any(
+                    w in prompt_lower
+                    for w in ("leave", "day", "days", "vacation", "sick", "pto", "retrieve", "check", "my", "show", "get", "what")
+                )
+            )
+        )
+
+        if has_balance_intent:
             bal_res = self._call_subagent_tool(
                 agent=workweek_agent,
                 tool_fn=get_leave_balance,
@@ -1503,7 +1623,7 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        if any(
+        if brain_intent == "get_leave_requests" or any(
             k in prompt_lower
             for k in (
                 "my leave requests",
@@ -1538,7 +1658,7 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        if any(
+        if brain_intent == "get_personal_info" or any(
             k in prompt_lower
             for k in (
                 "personal info",
@@ -1571,7 +1691,7 @@ class HRMultiAgentRuntime:
                 tool_trajectory=tool_trajectory,
             )
 
-        if any(
+        if brain_intent == "get_profile" or any(
             k in prompt_lower
             for k in (
                 "show my profile",
@@ -1607,14 +1727,6 @@ class HRMultiAgentRuntime:
                 delegated_agents=delegated_agents,
                 tool_trajectory=tool_trajectory,
             )
-
-        # Query Gemini Agent Brain (when active) for intent and argument extraction
-        llm_brain = self._query_gemini_agent_brain(user_prompt) or {}
-        brain_intent = str(llm_brain.get("intent") or "").strip().lower()
-
-        # Check if user is replying with dates to a previous leave booking turn where dates were missing
-        pending_leave_draft = state.get("pending_leave_draft")
-        _, _, _, prompt_has_dates = self._parse_flexible_dates_and_duration(user_prompt)
 
         if (
             (restored_tool_args and pending_conf and pending_conf.get("action") == "update_contact")
@@ -1700,28 +1812,6 @@ class HRMultiAgentRuntime:
         # ---------------------------------------------------------------------
         # Agent-Driven Leave Booking (`submit_leave` via WorkWeek Agent)
         # ---------------------------------------------------------------------
-        is_policy_question = any(
-            q in prompt_lower
-            for q in (
-                "what is the policy",
-                "what is our policy",
-                "policy on",
-                "policy for",
-                "how many days of",
-                "how much leave",
-                "accrual schedule",
-                "carry over",
-                "carryover",
-                "encash",
-                "handbook",
-                "bereavement",
-                "maternity",
-                "paternity",
-                "baby bonding",
-                "childcare",
-            )
-        ) and not any(v in prompt_lower for v in ("submit", "book", "apply"))
-
         has_leave_booking_verb = any(
             re.search(rf"\b{v}\b", prompt_lower)
             for v in (
@@ -1740,6 +1830,16 @@ class HRMultiAgentRuntime:
                 "filing",
                 "log",
                 "logging",
+                "ask",
+                "asking",
+                "want",
+                "need",
+                "would like",
+                "go on",
+                "put in",
+                "can i get",
+                "can i have",
+                "may i have",
             )
         )
         has_leave_noun = any(

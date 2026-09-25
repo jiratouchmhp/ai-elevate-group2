@@ -19,7 +19,11 @@ import subprocess
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote
-import httpx
+from urllib import error as urllib_error, request as urllib_request
+try:
+    import httpx  # type: ignore
+except ImportError:
+    httpx = None  # type: ignore
 
 from app.config.env_config import (
     get_firestore_database,
@@ -296,16 +300,34 @@ class FirestoreStore:
 
         req_timeout = timeout_override if timeout_override is not None else self.timeout_seconds
         try:
-            with httpx.Client(timeout=req_timeout) as client:
-                resp = client.request(method, url, headers=headers, json=json_body)
+            if httpx is not None:
+                with httpx.Client(timeout=req_timeout) as client:
+                    resp = client.request(method, url, headers=headers, json=json_body)
+                    try:
+                        payload = resp.json() if resp.content else {}
+                    except Exception:
+                        payload = {"raw": resp.text}
+                    if 200 <= resp.status_code < 300:
+                        self._cloud_reachable = True
+                        self._last_error = None
+                    return resp.status_code, payload
+            else:
+                body_bytes = json.dumps(json_body).encode("utf-8") if json_body is not None else None
+                req = urllib_request.Request(url, data=body_bytes, headers=headers, method=method)
                 try:
-                    payload = resp.json() if resp.content else {}
-                except Exception:
-                    payload = {"raw": resp.text}
-                if 200 <= resp.status_code < 300:
-                    self._cloud_reachable = True
-                    self._last_error = None
-                return resp.status_code, payload
+                    with urllib_request.urlopen(req, timeout=req_timeout) as u_resp:
+                        raw = u_resp.read().decode("utf-8")
+                        payload = json.loads(raw) if raw else {}
+                        self._cloud_reachable = True
+                        self._last_error = None
+                        return u_resp.status, payload
+                except urllib_error.HTTPError as he:
+                    raw = he.read().decode("utf-8", errors="replace")
+                    try:
+                        payload = json.loads(raw) if raw else {}
+                    except Exception:
+                        payload = {"raw": raw}
+                    return he.code, payload
         except Exception as exc:
             self._cloud_reachable = False
             self._last_error = f"{type(exc).__name__}: {exc}"

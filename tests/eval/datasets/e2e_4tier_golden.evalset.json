@@ -815,6 +815,92 @@
           }
         }
       ]
+    },
+    {
+      "eval_id": "t1_happy_natural_retrieve_balance_days",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "retrieve my balance days"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Here are your current real-time WorkWeek leave balances:\n- **Vacation**: 5.0 days remaining (21.0 accrued, 16.0 used)\n- **Sick Leave**: 12.0 days remaining (14.0 accrued, 2.0 used)"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "t1_happy_natural_ask_for_leave",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I want to ask for 2 days of leave from 2026-10-15 to 2026-10-16"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm: Submit 2.0 day(s) of Vacation leave from 2026-10-15 to 2026-10-16 (resulting balance: 3.0 days)?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {
+                  "leave_type": "Vacation",
+                  "start_date": "2026-10-15",
+                  "end_date": "2026-10-16",
+                  "days": 2.0,
+                  "confirmed": false
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
     }
   ]
 }

@@ -1,13 +1,13 @@
 {
   "eval_set_id": "subagent_workweek_evalset",
   "name": "Pillar 3b: workweek_agent Isolated Subagent Evaluation",
-  "description": "Direct isolated evaluation of workweek_agent HCM tools (get_leave_balance, get_profile, submit_leave), B-3 confirmation gate, and B-5 negative authority.",
+  "description": "Direct isolated evaluation of workweek_agent HCM tools (get_leave_balance, get_profile, submit_leave), natural language phrasing ('retrieve my balance days', 'ask for leave'), B-3 confirmation gate, and B-5 negative authority.",
   "eval_cases": [
     {
       "eval_id": "sub_workweek_leave_balance",
       "session_input": {
         "app_name": "app",
-        "user_id": "EMP-836",
+        "user_id": "EMP-SG-001",
         "state": {}
       },
       "conversation": [
@@ -42,10 +42,48 @@
       ]
     },
     {
+      "eval_id": "sub_workweek_natural_balance_days",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_natural_balance",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "retrieve my balance days"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Here are your current real-time WorkWeek leave balances:\n- **Vacation**: 5.0 days remaining (21.0 accrued, 16.0 used)\n- **Sick Leave**: 12.0 days remaining (14.0 accrued, 2.0 used)"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
       "eval_id": "sub_workweek_profile_lookup",
       "session_input": {
         "app_name": "app",
-        "user_id": "EMP-836",
+        "user_id": "EMP-SG-001",
         "state": {}
       },
       "conversation": [
@@ -83,7 +121,7 @@
       "eval_id": "sub_workweek_submit_leave_confirmation",
       "session_input": {
         "app_name": "app",
-        "user_id": "EMP-836",
+        "user_id": "EMP-SG-001",
         "state": {}
       },
       "conversation": [
@@ -114,9 +152,57 @@
               {
                 "name": "submit_leave",
                 "args": {
-                  "leave_type": "Annual",
+                  "leave_type": "Vacation",
                   "start_date": "2026-11-10",
                   "end_date": "2026-11-11",
+                  "days": 2.0,
+                  "confirmed": false
+                }
+              }
+            ],
+            "intermediate_responses": []
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "sub_workweek_natural_ask_for_leave",
+      "session_input": {
+        "app_name": "app",
+        "user_id": "EMP-SG-001",
+        "state": {}
+      },
+      "conversation": [
+        {
+          "invocation_id": "turn_1_ask_leave",
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "I want to ask for 2 days of leave from 2026-10-15 to 2026-10-16"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "Confirm: Submit 2.0 day(s) of Vacation leave from 2026-10-15 to 2026-10-16 (resulting balance: 3.0 days)?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_leave_balance",
+                "args": {}
+              },
+              {
+                "name": "submit_leave",
+                "args": {
+                  "leave_type": "Vacation",
+                  "start_date": "2026-10-15",
+                  "end_date": "2026-10-16",
                   "days": 2.0,
                   "confirmed": false
                 }
