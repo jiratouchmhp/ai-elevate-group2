@@ -44,6 +44,7 @@ ROOT_AGENT_NAME = "hr_agent"
 # Stand-in for the IAP-verified identity. In eval, the trace generator injects a
 # per-case persona into session state instead.
 DEMO_EMPLOYEE_ID = os.getenv("DEMO_EMPLOYEE_ID", "EMP001")
+ENFORCE_PILOT_ENROLLMENT = os.getenv("ENFORCE_PILOT_ENROLLMENT", "0") == "1"
 
 # --- Integration plane --------------------------------------------------------
 BACKEND_MODE = os.getenv("BACKEND_MODE", "inprocess")  # inprocess | mcp

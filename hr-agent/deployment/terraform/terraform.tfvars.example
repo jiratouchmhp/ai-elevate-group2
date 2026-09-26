@@ -10,8 +10,11 @@ backend_base_url = "https://mock-saas.example.com" # TODO: real vendor host
 # Persona the shared team PAT (HR-Group2) resolves to — confirm with scripts/probe_backend.py
 demo_employee_id = "EMP-829"
 
-# --- Who can use the UI (IAP) ------------------------------------------------------
+# --- Access (IAP / Public) --------------------------------------------------------
+# Set enable_iap = false for open MVP test access (roles/run.invoker to allUsers).
+enable_iap = false
 iap_members = [
+  # "allAuthenticatedUsers",
   # "user:alex.tan@altostrat.com",
   # "group:hr-pilot@altostrat.com",
 ]

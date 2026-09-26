@@ -104,17 +104,27 @@ async def test_me_and_dev_persona_switch(client):
     me3 = (await c.get("/api/me", headers={"X-Demo-Persona": "emp003"})).json()
     assert me3["employee_id"] == "EMP003" and me3["location_status"] == "Remote"
     # unknown persona falls back to the demo persona, never to arbitrary ids
-    assert (await c.get("/api/me", headers={"X-Demo-Persona": "EMP999"})).json()["employee_id"] == "EMP001"
+    assert (await c.get("/api/me", headers={"X-Demo-Persona": "EMP999"})).json()["employee_id"] == config.DEMO_EMPLOYEE_ID
 
 
 @pytest.mark.asyncio
-async def test_iap_identity_wins_and_unmapped_is_refused(client):
+async def test_iap_identity_wins_and_unmapped_is_refused(client, monkeypatch):
     c, _ = client
+    monkeypatch.setattr(config, "ENFORCE_PILOT_ENROLLMENT", True)
     ok = await c.get("/api/me", headers={"X-Goog-Authenticated-User-Email": "accounts.google.com:Alex.Tan@altostrat.com",
                                          "X-Demo-Persona": "EMP004"})
     assert ok.json()["employee_id"] == "EMP001" and "personas" in ok.json()
     bad = await c.get("/api/me", headers={"X-Goog-Authenticated-User-Email": "accounts.google.com:eve@evil.com"})
     assert bad.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_iap_unmapped_defaults_to_demo_employee_when_open(client, monkeypatch):
+    c, _ = client
+    monkeypatch.setattr(config, "ENFORCE_PILOT_ENROLLMENT", False)
+    res = await c.get("/api/me", headers={"X-Goog-Authenticated-User-Email": "accounts.google.com:newuser@company.com"})
+    assert res.status_code == 200
+    assert res.json()["employee_id"] == config.DEMO_EMPLOYEE_ID
 
 
 @pytest.mark.asyncio

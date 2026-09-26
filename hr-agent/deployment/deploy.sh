@@ -130,8 +130,13 @@ step_smoke() {
   [[ "$code" == "403" || "$code" == "401" ]] && echo "ok  hr-acl rejects unauthenticated callers ($code)" \
     || echo "WARN hr-acl returned $code to an unauthenticated call (expected 401/403)"
   code="$(curl -s -o /dev/null -w '%{http_code}' "$agent/")"
-  [[ "$code" == "302" || "$code" == "401" || "$code" == "403" ]] && echo "ok  hr-agent is behind IAP ($code)" \
-    || echo "WARN hr-agent returned $code without IAP (expected 302/401/403)"
+  if [[ "$code" == "200" ]]; then
+    echo "ok  hr-agent is publicly accessible ($code)"
+  elif [[ "$code" == "302" || "$code" == "401" || "$code" == "403" ]]; then
+    echo "ok  hr-agent is behind IAP ($code)"
+  else
+    echo "WARN hr-agent returned $code (expected 200 public or 302/401/403 behind IAP)"
+  fi
   # /health, not /healthz: run.app's front end reserves paths ending in "z".
   echo "hr-acl /health (impersonating hr-agent-sa):"
   local tok

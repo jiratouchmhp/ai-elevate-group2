@@ -22,10 +22,11 @@ from fastapi import FastAPI
 from google.adk.cli.fast_api import get_fast_api_app
 from google.adk.runners import Runner
 
-from app.app_utils import services
-from app.app_utils.a2a import attach_a2a_routes
-
 load_dotenv()
+
+from app.app_utils import services  # noqa: E402
+from app.app_utils.a2a import attach_a2a_routes  # noqa: E402
+
 allow_origins = (
     os.getenv("ALLOW_ORIGINS", "").split(",") if os.getenv("ALLOW_ORIGINS") else None
 )

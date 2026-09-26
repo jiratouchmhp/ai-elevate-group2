@@ -52,7 +52,9 @@ def resolve_employee_id(request: Request) -> str:
         email = iap.split(":", 1)[-1].strip().lower()
         emp = config.PERSONA_MAP.get(email)
         if not emp:
-            raise HTTPException(status_code=403, detail="Your account is not enrolled in the HR assistant pilot.")
+            if config.ENFORCE_PILOT_ENROLLMENT:
+                raise HTTPException(status_code=403, detail="Your account is not enrolled in the HR assistant pilot.")
+            return config.DEMO_EMPLOYEE_ID
         return emp
     if dev_personas_enabled():
         wanted = (request.headers.get(DEMO_PERSONA_HEADER) or "").strip().upper()
@@ -76,6 +78,14 @@ async def me(request: Request) -> dict:
     if config.BACKEND_MODE == "inprocess":
         p = _seed_employees().get(emp, {})
         body |= {k: p.get(k) for k in ("name", "department", "role", "location_status")}
+    elif config.BACKEND_MODE == "mcp":
+        if emp in (config.DEMO_EMPLOYEE_ID, "EMP-829"):
+            body |= {
+                "name": "Jiratouch Employee",
+                "department": "Google Forge (Customer Engineering)",
+                "role": "Individual Contributor",
+                "location_status": config.VENDOR_DEFAULT_LOCATION_STATUS or "Hybrid",
+            }
     if dev_personas_enabled():
         body["personas"] = [
             {"employee_id": k, "name": v.get("name"), "location_status": v.get("location_status"),

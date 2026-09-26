@@ -102,7 +102,7 @@ variable "rag_distance_threshold" {
 
 # ------------------------------------------------------------------ identity (IAP)
 variable "iap_members" {
-  description = "Principals allowed through IAP, e.g. [\"user:alex@altostrat.com\", \"group:hr-pilot@altostrat.com\"]."
+  description = "Principals allowed through IAP, e.g. [\"allAuthenticatedUsers\"] or [\"user:alex@altostrat.com\"]."
   type        = list(string)
   default     = []
 }
